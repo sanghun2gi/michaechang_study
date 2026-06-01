@@ -1,0 +1,115 @@
+// AI 특허출원 대시보드 — Prisma 스키마
+// 문서 B-2 데이터 모델 기반. 1차 스프린트 MVP에 필요한 엔티티 우선 정의.
+// LedgerRecord는 문서 권고대로 처음부터 포함한다.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  owner
+  attorney
+  member
+}
+
+enum SecurityLevel {
+  S
+  A
+  B
+  C
+}
+
+enum HallucinationTag {
+  GREEN
+  YELLOW
+  RED
+}
+
+// 조직 = 테넌트 격리 단위 (영업비밀 보호)
+model Organization {
+  id            String        @id @default(cuid())
+  name          String
+  securityLevel SecurityLevel @default(C)
+  createdAt     DateTime      @default(now())
+  users         User[]
+  projects      Project[]
+}
+
+model User {
+  id             String       @id @default(cuid())
+  email          String       @unique
+  name           String?
+  role           Role         @default(owner)
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  organizationId String
+  createdAt      DateTime     @default(now())
+}
+
+model Project {
+  id             String        @id @default(cuid())
+  name           String
+  securityLevel  SecurityLevel @default(C)
+  organization   Organization  @relation(fields: [organizationId], references: [id])
+  organizationId String
+  inventions     Invention[]
+  createdAt      DateTime      @default(now())
+}
+
+// STEP 1: 발명 입력
+model Invention {
+  id            String          @id @default(cuid())
+  title         String
+  field         String          // 기술분야
+  problem       String          // 해결하려는 과제
+  solution      String          // 해결 수단
+  effect        String          // 효과
+  keyFeatures   String          // 핵심 구성요소(자유 텍스트)
+  project       Project?        @relation(fields: [projectId], references: [id])
+  projectId     String?
+  structureCard StructureCard?
+  specification Specification?
+  createdAt     DateTime        @default(now())
+}
+
+// STEP 3: 발명 구조화 카드
+model StructureCard {
+  id          String    @id @default(cuid())
+  invention   Invention @relation(fields: [inventionId], references: [id])
+  inventionId String    @unique
+  // 구조화 결과를 JSON 문자열로 저장 (구성요소/축/문제-해결 매핑)
+  content     String
+  createdAt   DateTime  @default(now())
+}
+
+// STEP 18: 명세서/청구항 초안
+model Specification {
+  id          String    @id @default(cuid())
+  invention   Invention @relation(fields: [inventionId], references: [id])
+  inventionId String    @unique
+  background  String    // 배경기술
+  summary     String    // 발명의 요약
+  detailed    String    // 발명을 실시하기 위한 구체적 내용
+  claims      String    // 청구항 (텍스트)
+  // STEP 19: 할루시네이션 검증 결과 (JSON 문자열)
+  verification String?
+  overallTag   HallucinationTag @default(YELLOW)
+  createdAt    DateTime @default(now())
+}
+
+// STEP 0B: Provenance Ledger — 모든 AI 판단 추적
+model LedgerRecord {
+  id            String   @id @default(cuid())
+  step          String   // WORKFLOW STEP 식별자 (예: "STEP18", "STEP19")
+  action        String   // 수행한 작업 설명
+  model         String   // 사용한 모델명
+  inputSummary  String   // 입력 요약
+  outputSummary String   // 출력 요약
+  organizationId String?
+  inventionId    String?
+  createdAt     DateTime @default(now())
+}
