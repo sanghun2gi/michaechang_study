@@ -14,16 +14,28 @@ import { AllElementsMatrix } from "./AllElementsMatrix";
 import { ClaimLadderPanel } from "./ClaimLadderPanel";
 import { OAPanel } from "./OAPanel";
 import { ReviewGate } from "./ReviewGate";
+import { EffectDataPanel } from "./EffectDataPanel";
+import { EligibilityPanel } from "./EligibilityPanel";
 
-type TabId = "draft" | "evidence" | "matrix" | "ladder" | "oa" | "review";
+type TabId =
+  | "draft"
+  | "evidence"
+  | "matrix"
+  | "ladder"
+  | "oa"
+  | "effect"
+  | "eligibility"
+  | "review";
 
-const TABS: { id: TabId; label: string; needsDraft: boolean }[] = [
-  { id: "draft", label: "1. 진단·초안 (STEP 1/3/18/19)", needsDraft: false },
-  { id: "evidence", label: "2. 선행기술 DB (STEP 6)", needsDraft: false },
-  { id: "matrix", label: "3. All Elements (STEP 9)", needsDraft: true },
-  { id: "ladder", label: "4. Claim Ladder (STEP 14/15/16)", needsDraft: true },
-  { id: "oa", label: "5. 가상 OA (STEP 21)", needsDraft: true },
-  { id: "review", label: "6. 리뷰·승인 (STEP 24/24B)", needsDraft: true },
+const TABS: { id: TabId; label: string; needsDraft: boolean; badge?: string }[] = [
+  { id: "draft",       label: "1. 진단·초안",           needsDraft: false },
+  { id: "evidence",    label: "2. 선행기술 DB",          needsDraft: false },
+  { id: "matrix",      label: "3. All Elements",        needsDraft: true  },
+  { id: "ladder",      label: "4. Claim Ladder",        needsDraft: true  },
+  { id: "oa",          label: "5. 가상 OA",             needsDraft: true  },
+  { id: "effect",      label: "6. 효과데이터",   needsDraft: true,  badge: "New" },
+  { id: "eligibility", label: "7. SW·AI 적격성", needsDraft: true,  badge: "New" },
+  { id: "review",      label: "8. 리뷰·승인",           needsDraft: true  },
 ];
 
 export function Workspace() {
@@ -46,7 +58,7 @@ export function Workspace() {
 
   return (
     <div className="space-y-6">
-      <nav className="flex flex-wrap gap-2 border-b border-slate-200 pb-2">
+      <nav className="flex flex-wrap gap-1.5 border-b border-slate-200 pb-3">
         {TABS.map((t) => {
           const disabled = t.needsDraft && !draft;
           return (
@@ -54,7 +66,7 @@ export function Workspace() {
               key={t.id}
               onClick={() => !disabled && setTab(t.id)}
               disabled={disabled}
-              className={`rounded-md px-3 py-1.5 text-xs font-medium transition ${
+              className={`relative rounded-md px-3 py-1.5 text-xs font-medium transition ${
                 tab === t.id
                   ? "bg-brand text-white"
                   : disabled
@@ -64,6 +76,11 @@ export function Workspace() {
               title={disabled ? "먼저 초안을 생성하세요" : undefined}
             >
               {t.label}
+              {t.badge && (
+                <span className="ml-1.5 rounded bg-green-500 px-1 py-0.5 text-[10px] font-bold text-white">
+                  {t.badge}
+                </span>
+              )}
             </button>
           );
         })}
@@ -88,10 +105,24 @@ export function Workspace() {
         <ClaimLadderPanel invention={invention} draft={draft} />
       )}
 
-      {tab === "oa" && draft && <OAPanel draft={draft} evidence={evidence} />}
+      {tab === "oa" && draft && (
+        <OAPanel draft={draft} evidence={evidence} />
+      )}
+
+      {tab === "effect" && draft && invention && (
+        <EffectDataPanel invention={invention} />
+      )}
+
+      {tab === "eligibility" && draft && invention && (
+        <EligibilityPanel invention={invention} draft={draft} />
+      )}
 
       {tab === "review" && draft && (
-        <ReviewGate draft={draft} approval={approval} setApproval={setApproval} />
+        <ReviewGate
+          draft={draft}
+          approval={approval}
+          setApproval={setApproval}
+        />
       )}
     </div>
   );

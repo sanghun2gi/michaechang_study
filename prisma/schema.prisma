@@ -1,6 +1,6 @@
-// AI 특허출원 대시보드 — Prisma 스키마
-// 문서 B-2 데이터 모델 기반. 1차 스프린트 MVP에 필요한 엔티티 우선 정의.
-// LedgerRecord는 문서 권고대로 처음부터 포함한다.
+// AI 특허출원 대시보드 — Prisma 스키마 v3
+// 2차: Evidence, ClaimLadder, OASimulation, ReviewApproval 영속화 추가
+// 3차: EffectData(효과데이터), EligibilityGate(SW·AI 적격성) 추가
 
 generator client {
   provider = "prisma-client-js"
@@ -30,7 +30,13 @@ enum HallucinationTag {
   RED
 }
 
-// 조직 = 테넌트 격리 단위 (영업비밀 보호)
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+// 조직 = 테넌트 격리 단위
 model Organization {
   id            String        @id @default(cuid())
   name          String
@@ -62,18 +68,24 @@ model Project {
 
 // STEP 1: 발명 입력
 model Invention {
-  id            String          @id @default(cuid())
-  title         String
-  field         String          // 기술분야
-  problem       String          // 해결하려는 과제
-  solution      String          // 해결 수단
-  effect        String          // 효과
-  keyFeatures   String          // 핵심 구성요소(자유 텍스트)
-  project       Project?        @relation(fields: [projectId], references: [id])
-  projectId     String?
-  structureCard StructureCard?
-  specification Specification?
-  createdAt     DateTime        @default(now())
+  id             String          @id @default(cuid())
+  title          String
+  field          String
+  problem        String
+  solution       String
+  effect         String
+  keyFeatures    String
+  project        Project?        @relation(fields: [projectId], references: [id])
+  projectId      String?
+  structureCard  StructureCard?
+  specification  Specification?
+  evidence       Evidence[]
+  claimLadder    ClaimLadder?
+  oaSimulation   OASimulation?
+  reviewApproval ReviewApproval?
+  effectData     EffectData?
+  eligibility    EligibilityGate?
+  createdAt      DateTime        @default(now())
 }
 
 // STEP 3: 발명 구조화 카드
@@ -81,35 +93,102 @@ model StructureCard {
   id          String    @id @default(cuid())
   invention   Invention @relation(fields: [inventionId], references: [id])
   inventionId String    @unique
-  // 구조화 결과를 JSON 문자열로 저장 (구성요소/축/문제-해결 매핑)
-  content     String
+  content     String    // JSON: { components, problemSolutionMap, noveltyPoints }
   createdAt   DateTime  @default(now())
 }
 
-// STEP 18: 명세서/청구항 초안
+// STEP 18/19: 명세서/청구항 초안 + 할루시네이션 검증
 model Specification {
+  id           String           @id @default(cuid())
+  invention    Invention        @relation(fields: [inventionId], references: [id])
+  inventionId  String           @unique
+  background   String
+  summary      String
+  detailed     String
+  claims       String
+  verification String?          // JSON: VerificationItem[]
+  overallTag   HallucinationTag @default(YELLOW)
+  createdAt    DateTime         @default(now())
+}
+
+// STEP 6: 선행기술 근거 (Evidence DB) — Invention당 N건
+model Evidence {
+  id          String    @id @default(cuid())
+  invention   Invention @relation(fields: [inventionId], references: [id])
+  inventionId String
+  title       String
+  source      String    // 특허번호/논문/URL
+  pubDate     String    // 공개일 (자유 텍스트)
+  summary     String
+  origin      String    @default("manual") // "manual" | "kipris" | "google"
+  createdAt   DateTime  @default(now())
+}
+
+// STEP 14/15: Claim Ladder + Fallback Elements
+model ClaimLadder {
   id          String    @id @default(cuid())
   invention   Invention @relation(fields: [inventionId], references: [id])
   inventionId String    @unique
-  background  String    // 배경기술
-  summary     String    // 발명의 요약
-  detailed    String    // 발명을 실시하기 위한 구체적 내용
-  claims      String    // 청구항 (텍스트)
-  // STEP 19: 할루시네이션 검증 결과 (JSON 문자열)
-  verification String?
-  overallTag   HallucinationTag @default(YELLOW)
-  createdAt    DateTime @default(now())
+  rungs       String    // JSON: ClaimRung[]
+  fallbacks   String    // JSON: FallbackElement[]
+  createdAt   DateTime  @default(now())
 }
 
-// STEP 0B: Provenance Ledger — 모든 AI 판단 추적
+// STEP 21: 가상 거절이유 OA
+model OASimulation {
+  id          String           @id @default(cuid())
+  invention   Invention        @relation(fields: [inventionId], references: [id])
+  inventionId String           @unique
+  rejections  String           // JSON: Rejection[]
+  overallRisk HallucinationTag @default(YELLOW)
+  createdAt   DateTime         @default(now())
+}
+
+// STEP 24/24B: 전문가 리뷰·승인 게이트
+model ReviewApproval {
+  id          String         @id @default(cuid())
+  invention   Invention      @relation(fields: [inventionId], references: [id])
+  inventionId String         @unique
+  status      ApprovalStatus @default(PENDING)
+  reviewer    String         @default("")
+  comment     String         @default("")
+  decidedAt   DateTime?
+  createdAt   DateTime       @default(now())
+}
+
+// STEP 0B: Provenance Ledger
 model LedgerRecord {
-  id            String   @id @default(cuid())
-  step          String   // WORKFLOW STEP 식별자 (예: "STEP18", "STEP19")
-  action        String   // 수행한 작업 설명
-  model         String   // 사용한 모델명
-  inputSummary  String   // 입력 요약
-  outputSummary String   // 출력 요약
+  id             String   @id @default(cuid())
+  step           String
+  action         String
+  model          String
+  inputSummary   String
+  outputSummary  String
   organizationId String?
   inventionId    String?
-  createdAt     DateTime @default(now())
+  createdAt      DateTime @default(now())
+}
+
+// ── 3차 스프린트 ──────────────────────────────────────────────
+
+// 효과데이터 프로토콜 — 발명 효과의 정량 근거
+model EffectData {
+  id             String    @id @default(cuid())
+  invention      Invention @relation(fields: [inventionId], references: [id])
+  inventionId    String    @unique
+  // JSON: EffectEntry[] — 각 효과별 측정값·비교대상·출처
+  entries        String
+  overallQuality String    @default("UNVERIFIED") // VERIFIED | PARTIAL | UNVERIFIED
+  createdAt      DateTime  @default(now())
+}
+
+// SW·AI 적격성 Gate — 소프트웨어/AI 발명 특허적격성 체크리스트
+model EligibilityGate {
+  id          String    @id @default(cuid())
+  invention   Invention @relation(fields: [inventionId], references: [id])
+  inventionId String    @unique
+  // JSON: EligibilityCheckItem[]
+  checks      String
+  verdict     String    @default("UNDETERMINED") // ELIGIBLE | BORDERLINE | INELIGIBLE
+  createdAt   DateTime  @default(now())
 }

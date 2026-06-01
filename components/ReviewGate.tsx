@@ -9,21 +9,36 @@ export function ReviewGate({
   draft,
   approval,
   setApproval,
+  inventionId,
 }: {
   draft: DraftResult;
   approval: ReviewApproval;
   setApproval: (a: ReviewApproval) => void;
+  inventionId?: string;
 }) {
   const [reviewer, setReviewer] = useState(approval.reviewer);
   const [comment, setComment] = useState(approval.comment);
 
-  function decide(status: "APPROVED" | "REJECTED") {
-    setApproval({
+  async function decide(status: "APPROVED" | "REJECTED") {
+    const next: ReviewApproval = {
       status,
       reviewer: reviewer.trim() || "(미기재)",
       comment,
       decidedAt: new Date().toISOString(),
-    });
+    };
+    setApproval(next);
+    // DB가 있으면 영속화 (inventionId 전달 시)
+    if (inventionId) {
+      try {
+        await fetch("/api/approval", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ inventionId, ...next }),
+        });
+      } catch {
+        // DB 저장 실패는 무시 (데모 환경)
+      }
+    }
   }
 
   const decided = approval.status !== "PENDING";

@@ -47,6 +47,7 @@ export interface Evidence {
   source: string; // 출처 (특허번호/논문/URL 등)
   pubDate: string; // 공개일 (YYYY-MM-DD, 자유 텍스트 허용)
   summary: string; // 관련 내용 요약
+  origin?: EvidenceOrigin; // 등록 경로
 }
 
 // STEP 9: All Elements Matrix — 청구항 구성요소 × 선행기술 커버리지
@@ -115,4 +116,53 @@ export interface ReviewApproval {
   reviewer: string;
   comment: string;
   decidedAt: string | null;
+}
+
+// ── 3차 스프린트 ─────────────────────────────────────────────
+
+// 선행기술 검색 소스 식별자 (Evidence.origin에서도 사용하므로 앞에 선언)
+export type EvidenceOrigin = "manual" | "kipris" | "google";
+
+// 검색 결과 (KIPRIS / Google Patents 공통 구조)
+export interface SearchHit {
+  title: string;
+  source: string; // 특허번호 또는 URL
+  pubDate: string;
+  summary: string;
+  origin: EvidenceOrigin;
+}
+
+// 효과데이터 프로토콜
+export type EffectQuality = "VERIFIED" | "PARTIAL" | "UNVERIFIED";
+
+export interface EffectEntry {
+  effectName: string;      // 효과 명칭 (예: "반응속도 향상")
+  metric: string;          // 측정 지표 (예: "응답시간 ms")
+  baseline: string;        // 비교대상(종래기술) 값
+  inventionValue: string;  // 발명 구현 시 값
+  source: string;          // 데이터 출처 (실험보고서/논문 등)
+  note: string;            // 보충 설명
+}
+
+export interface EffectDataResult {
+  entries: EffectEntry[];
+  overallQuality: EffectQuality;
+  ledgerIds: string[];
+}
+
+// SW·AI 특허적격성 Gate
+export type EligibilityVerdict = "ELIGIBLE" | "BORDERLINE" | "INELIGIBLE";
+
+export interface EligibilityCheckItem {
+  checkId: string;         // 체크 항목 ID
+  label: string;           // 체크 항목 설명
+  result: "PASS" | "FAIL" | "WARN";
+  reason: string;
+}
+
+export interface EligibilityResult {
+  checks: EligibilityCheckItem[];
+  verdict: EligibilityVerdict;
+  summary: string;
+  ledgerIds: string[];
 }
