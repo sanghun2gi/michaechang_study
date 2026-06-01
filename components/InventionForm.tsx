@@ -31,7 +31,11 @@ const SAMPLE: InventionInput = {
   keyFeatures: "다관절 힌지, 접이식 태양광 패널 모듈, 가변 전압 제어 회로, 휴대용 배터리 팩",
 };
 
-export function InventionForm() {
+export function InventionForm({
+  onResult,
+}: {
+  onResult?: (invention: InventionInput, draft: DraftResult) => void;
+}) {
   const [form, setForm] = useState<InventionInput>(EMPTY);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -54,6 +58,7 @@ export function InventionForm() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "요청 실패");
       setResult(data as DraftResult);
+      onResult?.(form, data as DraftResult);
     } catch (err) {
       setError(err instanceof Error ? err.message : "알 수 없는 오류");
     } finally {
