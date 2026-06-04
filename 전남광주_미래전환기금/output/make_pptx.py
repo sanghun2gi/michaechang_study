@@ -615,40 +615,63 @@ s = prs.slides.add_slide(BLANK)
 add_header_bar(s, "기금 거버넌스",
                "10 | 정치적 개입 차단 10가지 장치")
 
-# 조직도 박스
+# ── 좌측: 거버넌스 조직도 ──────────────────────────────
+add_text(s, "■ 거버넌스 체계", 0.4, 1.25, 6, 0.32,
+         size=14, bold=True, color=C_NAVY)
 org = [
-    (5.4, 1.25, 2.5, 0.6, C_NAVY,    "전남광주특별시장"),
-    (4.8, 2.15, 3.7, 0.6, C_GWANGJU, "미래전환기금운용위원회\n(공무원 의결권 배제)"),
-    (0.4, 3.3,  2.9, 0.6, C_JEONNAM, "투자정책위원회"),
-    (3.5, 3.3,  2.9, 0.6, C_TEAL,    "위험관리위원회"),
-    (6.6, 3.3,  2.9, 0.6, C_NAVY,    "지역전략사업위원회"),
-    (9.7, 3.3,  2.9, 0.6, C_GOLD,    "시민감시위원회"),
-    (3.8, 4.4,  5.5, 0.6, C_GWANGJU, "OCIO 전문운용기관 (공개경쟁 선정)"),
-    (0.4, 5.5,  3.5, 0.5, C_JEONNAM, "특별시의회 보고"),
-    (4.1, 5.5,  3.5, 0.5, C_TEAL,    "외부감사인"),
-    (7.8, 5.5,  4.5, 0.5, C_NAVY,    "중앙정부·국회 보고"),
+    (1.7, 1.65, 3.4, 0.5,  C_NAVY,    "전남광주특별시장"),
+    (1.4, 2.40, 4.0, 0.6,  C_GWANGJU, "미래전환기금운용위원회\n(공무원 의결권 배제)"),
+    (0.4, 3.30, 3.0, 0.85, C_JEONNAM, "투자정책\n위원회"),
+    (3.5, 3.30, 3.0, 0.85, C_TEAL,    "위험관리\n위원회"),
+    (0.4, 4.30, 3.0, 0.85, C_NAVY,    "지역전략사업\n위원회"),
+    (3.5, 4.30, 3.0, 0.85, C_GOLD,    "시민감시\n위원회"),
+    (1.4, 5.30, 4.0, 0.6,  C_GWANGJU, "OCIO 전문운용기관\n(공개경쟁 선정)"),
+    (0.4, 6.05, 6.1, 0.5,  C_TEAL,    "외부감사인 · 특별시의회 · 중앙정부/국회 보고"),
 ]
 for (x, y, w, h, clr, txt) in org:
     add_rect(s, x, y, w, h, fill=clr)
-    add_text(s, txt, x+0.05, y+0.05, w-0.1, h-0.1,
+    add_text(s, txt, x+0.05, y+0.03, w-0.1, h-0.06,
              size=11, bold=True, color=C_WHITE, align=PP_ALIGN.CENTER)
 
-# 10대 차단장치
+# ── 우측: 10대 정치개입 차단장치 (2열 × 5행, 겹침 버그 수정) ──
+add_rect(s, 6.9, 1.25, 6.1, 5.3, fill=C_LGRAY,
+         line_color=C_NAVY, line_width=1.5)
+add_text(s, "■ 10대 정치개입 차단장치", 7.05, 1.35, 5.8, 0.35,
+         size=14, bold=True, color=C_NAVY)
 devices = [
-    "① 투자정책서 사전공시",    "② 자산군 허용범위 고정",
-    "③ 특정기업 직접투자 금지", "④ 지역투자 별도 심사",
-    "⑤ 위원·회의록 공개",       "⑥ 외부감사 의무",
-    "⑦ 의회보고 의무",          "⑧ 이해충돌 신고 의무",
-    "⑨ 운용기관 공개경쟁",      "⑩ 성과 전면 공개",
+    ("①", "투자정책서 사전공시",   "운용 규칙 사전 공개 → 사후 변경 차단"),
+    ("②", "자산군별 허용범위 고정", "±범위 내에서만 조정 → 임의 변경 불가"),
+    ("③", "특정기업 직접투자 금지", "개별 기업 직접매수 원칙 금지"),
+    ("④", "지역전략투자 별도 심사", "위원회 심사 없이 지역투자 불가"),
+    ("⑤", "위원명단·회의록 공개",   "의사결정 과정 전면 투명화"),
+    ("⑥", "외부감사 의무화",        "독립 회계법인 정기 감사"),
+    ("⑦", "의회 보고 의무화",       "연 1회 이상 성과 보고"),
+    ("⑧", "이해충돌 신고 의무",     "위원·직원 이해충돌 즉시 신고"),
+    ("⑨", "운용기관 공개경쟁",      "RFI→RFP 공개입찰 → 내정 불가"),
+    ("⑩", "성과평가 전면 공개",     "모든 수익률·위험지표 공개"),
 ]
-add_text(s, "■ 10대 정치개입 차단장치", 0.3, 6.2, 6, 0.35,
-         size=12, bold=True, color=C_NAVY)
-for i, d in enumerate(devices):
-    x = 0.3 + (i % 5) * 2.6
-    y = 6.58 + (i // 5) * 0.0
-    add_rect(s, x, 6.55, 2.4, 0.32, fill=C_NAVY if i<5 else C_JEONNAM)
-    add_text(s, d, x+0.05, 6.57, 2.3, 0.28,
-             size=9, color=C_WHITE, align=PP_ALIGN.CENTER)
+dcolors = [C_GWANGJU, C_JEONNAM]
+dy0 = 1.80
+drow_h = 0.92
+for i, (num, label, desc) in enumerate(devices):
+    col = i // 5
+    row = i % 5
+    x = 7.05 + col * 3.0
+    y = dy0 + row * drow_h
+    clr = dcolors[col]
+    add_rect(s, x, y, 2.85, 0.84, fill=C_WHITE,
+             line_color=clr, line_width=1)
+    add_rect(s, x, y, 0.45, 0.84, fill=clr)
+    add_text(s, num, x, y+0.21, 0.45, 0.42,
+             size=16, bold=True, color=C_WHITE, align=PP_ALIGN.CENTER)
+    add_text(s, label, x+0.52, y+0.06, 2.28, 0.36,
+             size=11, bold=True, color=clr)
+    add_text(s, desc, x+0.52, y+0.42, 2.28, 0.4,
+             size=8.5, color=C_GRAY)
+
+add_text(s, "사전공시(규칙 고정) + 독립위원회(심사 분리) + 공개경쟁(선정 투명) + 의회감독(사후 통제)의 4중 방어선",
+         0.4, 6.68, 12.6, 0.35, size=11, bold=True, color=C_NAVY,
+         align=PP_ALIGN.CENTER)
 slide_footer(s, 12)
 
 # ════════════════════════════════════════════════════════════
