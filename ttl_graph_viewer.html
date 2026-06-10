@@ -424,9 +424,6 @@ function parseTTL(text) {
   const prefixes = {};
   const triples  = [];
 
-  // Remove comments
-  text = text.replace(/#[^\n]*/g, '');
-
   // Extract @prefix / PREFIX
   const prefixRe = /(?:@prefix|PREFIX)\s+(\w*:)\s*<([^>]+)>\s*\.?/gi;
   let m;
@@ -451,7 +448,10 @@ function parseTTL(text) {
   // Shorten URI for display
   function shorten(uri) {
     if (!uri || uri.startsWith('"') || uri.startsWith("'")) {
-      return uri.replace(/^["']|["']$/g,'').replace(/\^\^.*$/,'');
+      // strip surrounding quotes plus trailing @lang or ^^<datatype>
+      return uri
+        .replace(/^("""|'''|"|')/,'')
+        .replace(/("""|'''|"|')(@[\w-]+|\^\^\S+)?$/,'');
     }
     for (const [pre, ns] of Object.entries(prefixes)) {
       if (uri.startsWith(ns)) return pre + uri.slice(ns.length);
@@ -463,16 +463,22 @@ function parseTTL(text) {
   // Remove @prefix lines before triple parsing
   const body = text.replace(/(?:@prefix|PREFIX)\s+[^\n]+/gi, '');
 
-  // Split into statements by '.'
-  // Handle semicolons (same subject) and commas (same subject+predicate)
-  const statements = body.split(/\.\s*(?=\n|$|\s*[<"'@_a-zA-Z])/);
+  // Tokenise the whole body (respects URIs/strings), then split
+  // statements at bare '.' tokens — never inside <...> or "..."
+  const allTokens = tokenise(body);
+  const statements = [];
+  let cur = [];
+  for (const tok of allTokens) {
+    if (tok === '.') {
+      if (cur.length) statements.push(cur);
+      cur = [];
+    } else {
+      cur.push(tok);
+    }
+  }
+  if (cur.length) statements.push(cur);
 
-  for (let stmt of statements) {
-    stmt = stmt.trim();
-    if (!stmt) continue;
-
-    // Tokenise (respect quoted strings, angle brackets)
-    const tokens = tokenise(stmt);
+  for (const tokens of statements) {
     if (tokens.length < 3) continue;
 
     let si = 0;
@@ -513,6 +519,12 @@ function tokenise(str) {
   while (i < str.length) {
     // skip whitespace
     if (/\s/.test(str[i])) { i++; continue; }
+    // comment: '#' outside URIs/strings runs to end of line
+    if (str[i] === '#') {
+      let nl = str.indexOf('\n', i);
+      i = (nl === -1) ? str.length : nl + 1;
+      continue;
+    }
     // angle bracket URI
     if (str[i] === '<') {
       let j = str.indexOf('>', i+1);
@@ -534,10 +546,15 @@ function tokenise(str) {
           j++;
         }
         let end = j+1;
-        // consume ^^<type> or @lang
-        if (str[end] === '^') {
-          const k = str.indexOf('>', end);
-          end = k+1;
+        // consume ^^<type>, ^^prefix:name, or @lang
+        if (str[end] === '^' && str[end+1] === '^') {
+          end += 2;
+          if (str[end] === '<') {
+            const k = str.indexOf('>', end);
+            end = (k === -1) ? str.length : k+1;
+          } else {
+            while (end < str.length && !/[\s,;]/.test(str[end])) end++;
+          }
         } else if (str[end] === '@') {
           end++;
           while (end < str.length && /[a-zA-Z\-]/.test(str[end])) end++;
@@ -551,7 +568,18 @@ function tokenise(str) {
     // bare token (prefix:local, a, _:blank, etc.)
     let j = i;
     while (j < str.length && !/[\s,;]/.test(str[j])) j++;
-    if (j > i) { tokens.push(str.slice(i,j)); i = j; }
+    if (j > i) {
+      let tok = str.slice(i, j);
+      // statement-terminating '.' may be glued to the token (e.g. "ex:Korea.")
+      // but keep decimals like "3.14" intact
+      if (tok.length > 1 && tok.endsWith('.') && !/^\d+\.$/.test(tok)) {
+        tokens.push(tok.slice(0, -1));
+        tokens.push('.');
+      } else {
+        tokens.push(tok);
+      }
+      i = j;
+    }
     else i++;
   }
   return tokens.filter(t => t.trim());
