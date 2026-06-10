@@ -1,0 +1,1058 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TTL Graph Viewer</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', sans-serif;
+    background: #0f1117;
+    color: #e0e0e0;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ── Top Bar ── */
+  #topbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+    background: #1a1d27;
+    border-bottom: 1px solid #2e3147;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+  }
+
+  #topbar h1 {
+    font-size: 18px;
+    font-weight: 700;
+    color: #7c9ef8;
+    margin-right: 8px;
+    white-space: nowrap;
+  }
+
+  .btn {
+    padding: 7px 14px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    transition: 0.2s;
+  }
+  .btn-primary { background: #4a6cf7; color: #fff; }
+  .btn-primary:hover { background: #3a5ce7; }
+  .btn-success { background: #2ecc71; color: #fff; }
+  .btn-success:hover { background: #27ae60; }
+  .btn-info    { background: #3498db; color: #fff; }
+  .btn-info:hover { background: #2980b9; }
+  .btn-warn    { background: #e67e22; color: #fff; }
+  .btn-warn:hover { background: #ca6f1e; }
+  .btn-danger  { background: #e74c3c; color: #fff; }
+  .btn-danger:hover { background: #c0392b; }
+
+  #file-input { display: none; }
+
+  #stats-bar {
+    margin-left: auto;
+    font-size: 12px;
+    color: #888;
+    white-space: nowrap;
+  }
+
+  /* ── Main Layout ── */
+  #main {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* ── Left Panel ── */
+  #left-panel {
+    width: 300px;
+    min-width: 200px;
+    background: #1a1d27;
+    border-right: 1px solid #2e3147;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+
+  #panel-tabs {
+    display: flex;
+    border-bottom: 1px solid #2e3147;
+  }
+
+  .tab-btn {
+    flex: 1;
+    padding: 8px;
+    background: none;
+    border: none;
+    color: #888;
+    font-size: 12px;
+    cursor: pointer;
+    transition: 0.2s;
+  }
+  .tab-btn.active { color: #7c9ef8; border-bottom: 2px solid #7c9ef8; }
+  .tab-btn:hover { color: #aaa; }
+
+  .tab-content { display: none; flex: 1; overflow-y: auto; padding: 10px; }
+  .tab-content.active { display: block; }
+
+  /* Search */
+  #search-box {
+    width: 100%;
+    padding: 6px 10px;
+    background: #0f1117;
+    border: 1px solid #2e3147;
+    border-radius: 6px;
+    color: #e0e0e0;
+    font-size: 12px;
+    margin-bottom: 8px;
+  }
+
+  /* Node list */
+  .node-item {
+    padding: 6px 8px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 12px;
+    margin-bottom: 2px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: 0.15s;
+  }
+  .node-item:hover { background: #252840; }
+  .node-item.selected { background: #2e3a7a; }
+
+  .node-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  /* Info Panel */
+  #info-panel {
+    padding: 10px;
+    font-size: 12px;
+    line-height: 1.6;
+  }
+  #info-panel .info-label {
+    color: #888;
+    font-size: 11px;
+    text-transform: uppercase;
+    margin-top: 10px;
+    margin-bottom: 4px;
+  }
+  #info-panel .info-value {
+    background: #0f1117;
+    border-radius: 4px;
+    padding: 5px 8px;
+    word-break: break-all;
+    color: #c0d0ff;
+  }
+  #info-panel .prop-row {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 4px;
+  }
+  #info-panel .prop-key {
+    color: #7c9ef8;
+    min-width: 80px;
+    font-size: 11px;
+  }
+  #info-panel .prop-val {
+    color: #e0e0e0;
+    word-break: break-all;
+  }
+
+  /* TTL Editor */
+  #ttl-editor {
+    width: 100%;
+    flex: 1;
+    background: #0f1117;
+    color: #c9d1d9;
+    border: none;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    padding: 10px;
+    resize: none;
+    outline: none;
+    line-height: 1.5;
+  }
+
+  #editor-actions {
+    padding: 8px;
+    border-top: 1px solid #2e3147;
+    display: flex;
+    gap: 6px;
+  }
+  #editor-actions .btn { flex: 1; padding: 6px 0; font-size: 12px; }
+
+  /* ── Graph Canvas ── */
+  #graph-container {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    background: #0f1117;
+  }
+
+  #graph-svg {
+    width: 100%;
+    height: 100%;
+  }
+
+  /* Controls */
+  #graph-controls {
+    position: absolute;
+    bottom: 16px;
+    right: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .ctrl-btn {
+    width: 36px; height: 36px;
+    border-radius: 8px;
+    background: #1a1d27;
+    border: 1px solid #2e3147;
+    color: #e0e0e0;
+    font-size: 18px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: 0.15s;
+  }
+  .ctrl-btn:hover { background: #252840; }
+
+  /* Legend */
+  #legend {
+    position: absolute;
+    bottom: 16px;
+    left: 16px;
+    background: #1a1d2799;
+    backdrop-filter: blur(6px);
+    border: 1px solid #2e3147;
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 12px;
+    max-width: 200px;
+  }
+  #legend h4 { color: #7c9ef8; margin-bottom: 6px; font-size: 11px; text-transform: uppercase; }
+  .legend-item { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+  .legend-color { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+
+  /* Tooltip */
+  #tooltip {
+    position: absolute;
+    background: #1a1d27ee;
+    border: 1px solid #4a6cf7;
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 12px;
+    pointer-events: none;
+    display: none;
+    max-width: 280px;
+    word-break: break-all;
+    z-index: 100;
+  }
+
+  /* Drop Zone */
+  #drop-zone {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    color: #555;
+  }
+  #drop-zone.hidden { display: none; }
+  #drop-zone svg { opacity: 0.3; }
+  #drop-zone p { font-size: 15px; }
+  #drop-zone small { font-size: 12px; color: #444; }
+
+  #graph-container.drag-over { border: 2px dashed #4a6cf7; }
+
+  /* Filter controls */
+  #filter-bar {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .filter-chip {
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    cursor: pointer;
+    border: 1px solid transparent;
+    opacity: 0.85;
+    transition: 0.15s;
+  }
+  .filter-chip:hover { opacity: 1; }
+  .filter-chip.off { opacity: 0.3; }
+
+  /* SVG styles (injected) */
+  .node circle { cursor: pointer; transition: r 0.2s; }
+  .node circle:hover { filter: brightness(1.3); }
+  .node text { pointer-events: none; font-size: 11px; fill: #e0e0e0; }
+  .link line { stroke-opacity: 0.55; }
+  .link text { font-size: 10px; fill: #aaa; pointer-events: none; }
+
+  #loading {
+    position: absolute;
+    inset: 0;
+    background: #0f111799;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    color: #7c9ef8;
+    display: none;
+  }
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div id="topbar">
+  <h1>🔷 TTL Graph Viewer</h1>
+  <button class="btn btn-primary" onclick="document.getElementById('file-input').click()">📂 파일 열기</button>
+  <input type="file" id="file-input" accept=".ttl,.n3,.rdf" multiple>
+  <button class="btn btn-success" onclick="exportSVG()">⬇ SVG</button>
+  <button class="btn btn-info"    onclick="exportPNG()">⬇ PNG</button>
+  <button class="btn btn-warn"    onclick="resetLayout()">⟳ 레이아웃 초기화</button>
+  <button class="btn btn-danger"  onclick="clearGraph()">✕ 초기화</button>
+  <div id="stats-bar">노드: 0 &nbsp;|&nbsp; 엣지: 0</div>
+</div>
+
+<!-- MAIN -->
+<div id="main">
+
+  <!-- LEFT PANEL -->
+  <div id="left-panel">
+    <div id="panel-tabs">
+      <button class="tab-btn active" onclick="switchTab('nodes')">노드 목록</button>
+      <button class="tab-btn"        onclick="switchTab('info')">상세 정보</button>
+      <button class="tab-btn"        onclick="switchTab('editor')">TTL 편집</button>
+    </div>
+
+    <!-- Nodes Tab -->
+    <div id="tab-nodes" class="tab-content active">
+      <input id="search-box" type="text" placeholder="노드 검색..." oninput="filterNodes(this.value)">
+      <div id="node-list"></div>
+    </div>
+
+    <!-- Info Tab -->
+    <div id="tab-info" class="tab-content">
+      <div id="info-panel">
+        <p style="color:#555;font-size:12px;">노드를 클릭하면 상세 정보가 표시됩니다.</p>
+      </div>
+    </div>
+
+    <!-- Editor Tab -->
+    <div id="tab-editor" class="tab-content" style="display:flex;flex-direction:column;padding:0;flex:1;">
+      <textarea id="ttl-editor" placeholder="여기에 TTL 코드를 붙여넣거나 직접 입력하세요...
+
+예시:
+@prefix ex: <http://example.org/> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+
+ex:Seoul rdf:type ex:City .
+ex:Seoul ex:locatedIn ex:Korea .
+ex:Jeju ex:locatedIn ex:Korea .
+"></textarea>
+      <div id="editor-actions">
+        <button class="btn btn-primary" onclick="parseEditorContent()">▶ 그래프 생성</button>
+        <button class="btn btn-warn"    onclick="clearEditor()">✕ 지우기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- GRAPH AREA -->
+  <div id="graph-container">
+    <div id="drop-zone">
+      <svg width="80" height="80" viewBox="0 0 80 80" fill="none">
+        <rect x="10" y="20" width="60" height="50" rx="6" stroke="#555" stroke-width="3"/>
+        <path d="M30 20V10a4 4 0 014-4h12a4 4 0 014 4v10" stroke="#555" stroke-width="3"/>
+        <path d="M40 38v16M32 46l8-8 8 8" stroke="#555" stroke-width="2.5" stroke-linecap="round"/>
+      </svg>
+      <p>.ttl 파일을 드래그하거나 파일 열기 버튼을 클릭하세요</p>
+      <small>또는 왼쪽 TTL 편집 탭에서 직접 입력하세요</small>
+    </div>
+
+    <svg id="graph-svg"></svg>
+
+    <div id="filter-bar"></div>
+
+    <div id="legend">
+      <h4>범례</h4>
+      <div id="legend-items"></div>
+    </div>
+
+    <div id="graph-controls">
+      <button class="ctrl-btn" onclick="zoom(1.2)" title="확대">+</button>
+      <button class="ctrl-btn" onclick="zoom(0.8)" title="축소">−</button>
+      <button class="ctrl-btn" onclick="fitView()" title="전체 보기">⊡</button>
+    </div>
+
+    <div id="tooltip"></div>
+    <div id="loading">그래프 생성 중...</div>
+  </div>
+</div>
+
+<!-- D3.js -->
+<script src="https://d3js.org/d3.v7.min.js"></script>
+
+<script>
+// ═══════════════════════════════════════════════
+// TTL PARSER (lightweight, handles common cases)
+// ═══════════════════════════════════════════════
+function parseTTL(text) {
+  const prefixes = {};
+  const triples  = [];
+
+  // Remove comments
+  text = text.replace(/#[^\n]*/g, '');
+
+  // Extract @prefix / PREFIX
+  const prefixRe = /(?:@prefix|PREFIX)\s+(\w*:)\s*<([^>]+)>\s*\.?/gi;
+  let m;
+  while ((m = prefixRe.exec(text)) !== null) {
+    prefixes[m[1]] = m[2];
+  }
+
+  // Expand prefix:local → full URI
+  function expand(token) {
+    token = token.trim();
+    if (token.startsWith('<') && token.endsWith('>')) return token.slice(1,-1);
+    if (token.startsWith('"') || token.startsWith("'")) return token;
+    const colon = token.indexOf(':');
+    if (colon > 0) {
+      const pre = token.slice(0, colon+1);
+      if (prefixes[pre]) return prefixes[pre] + token.slice(colon+1);
+    }
+    if (token === 'a') return 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type';
+    return token;
+  }
+
+  // Shorten URI for display
+  function shorten(uri) {
+    if (!uri || uri.startsWith('"') || uri.startsWith("'")) {
+      return uri.replace(/^["']|["']$/g,'').replace(/\^\^.*$/,'');
+    }
+    for (const [pre, ns] of Object.entries(prefixes)) {
+      if (uri.startsWith(ns)) return pre + uri.slice(ns.length);
+    }
+    const parts = uri.split(/[#\/]/);
+    return parts[parts.length-1] || uri;
+  }
+
+  // Remove @prefix lines before triple parsing
+  const body = text.replace(/(?:@prefix|PREFIX)\s+[^\n]+/gi, '');
+
+  // Split into statements by '.'
+  // Handle semicolons (same subject) and commas (same subject+predicate)
+  const statements = body.split(/\.\s*(?=\n|$|\s*[<"'@_a-zA-Z])/);
+
+  for (let stmt of statements) {
+    stmt = stmt.trim();
+    if (!stmt) continue;
+
+    // Tokenise (respect quoted strings, angle brackets)
+    const tokens = tokenise(stmt);
+    if (tokens.length < 3) continue;
+
+    let si = 0;
+    const subj = tokens[si++];
+    if (!subj) continue;
+
+    // Walk predicate-object pairs separated by ';', objects by ','
+    let pred = null;
+    while (si < tokens.length) {
+      const tok = tokens[si];
+      if (tok === ';') { si++; pred = null; continue; }
+      if (tok === ',') { si++; continue; }
+      if (pred === null) {
+        pred = tokens[si++];
+        continue;
+      }
+      const obj = tokens[si++];
+      if (subj && pred && obj) {
+        triples.push({
+          s: expand(subj),
+          p: expand(pred),
+          o: expand(obj),
+          sLabel: shorten(expand(subj)),
+          pLabel: shorten(expand(pred)),
+          oLabel: shorten(expand(obj)),
+          oIsLiteral: obj.startsWith('"') || obj.startsWith("'")
+        });
+      }
+    }
+  }
+
+  return { prefixes, triples, shorten };
+}
+
+function tokenise(str) {
+  const tokens = [];
+  let i = 0;
+  while (i < str.length) {
+    // skip whitespace
+    if (/\s/.test(str[i])) { i++; continue; }
+    // angle bracket URI
+    if (str[i] === '<') {
+      let j = str.indexOf('>', i+1);
+      if (j === -1) j = str.length;
+      tokens.push(str.slice(i, j+1)); i = j+1; continue;
+    }
+    // quoted string (single or double, with possible ^^^datatype or @lang)
+    if (str[i] === '"' || str[i] === "'") {
+      const q = str[i];
+      // triple-quote?
+      if (str.slice(i,i+3) === q+q+q) {
+        let j = str.indexOf(q+q+q, i+3);
+        if (j === -1) j = str.length-3;
+        tokens.push(str.slice(i, j+3)); i = j+3;
+      } else {
+        let j = i+1;
+        while (j < str.length && str[j] !== q) {
+          if (str[j] === '\\') j++;
+          j++;
+        }
+        let end = j+1;
+        // consume ^^<type> or @lang
+        if (str[end] === '^') {
+          const k = str.indexOf('>', end);
+          end = k+1;
+        } else if (str[end] === '@') {
+          end++;
+          while (end < str.length && /[a-zA-Z\-]/.test(str[end])) end++;
+        }
+        tokens.push(str.slice(i, end)); i = end;
+      }
+      continue;
+    }
+    // semicolon / comma
+    if (str[i] === ';' || str[i] === ',') { tokens.push(str[i]); i++; continue; }
+    // bare token (prefix:local, a, _:blank, etc.)
+    let j = i;
+    while (j < str.length && !/[\s,;]/.test(str[j])) j++;
+    if (j > i) { tokens.push(str.slice(i,j)); i = j; }
+    else i++;
+  }
+  return tokens.filter(t => t.trim());
+}
+
+// ═══════════════════════════════════════════════
+// GRAPH STATE
+// ═══════════════════════════════════════════════
+let allNodes = [], allLinks = [], simulation = null;
+let svgEl, gEl, zoomBehavior;
+let selectedNode = null;
+let typeColorMap  = {};
+let hiddenTypes   = new Set();
+const PALETTE = [
+  '#4a6cf7','#e74c3c','#2ecc71','#f39c12','#9b59b6',
+  '#1abc9c','#e67e22','#3498db','#e91e63','#00bcd4',
+  '#8bc34a','#ff5722','#607d8b','#795548','#9c27b0'
+];
+
+function getColor(type) {
+  if (!typeColorMap[type]) {
+    const idx = Object.keys(typeColorMap).length % PALETTE.length;
+    typeColorMap[type] = PALETTE[idx];
+  }
+  return typeColorMap[type];
+}
+
+// ═══════════════════════════════════════════════
+// BUILD GRAPH FROM TRIPLES
+// ═══════════════════════════════════════════════
+function buildGraph(triples) {
+  const nodeMap = {};
+  const links   = [];
+  const rdfType = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type';
+
+  // First pass: collect types
+  const typeOf = {};
+  for (const t of triples) {
+    if (t.p === rdfType && !t.oIsLiteral) {
+      typeOf[t.s] = t.oLabel;
+    }
+  }
+
+  function getOrCreate(uri, label, isLiteral) {
+    if (!nodeMap[uri]) {
+      nodeMap[uri] = {
+        id: uri, label,
+        type: typeOf[uri] || (isLiteral ? 'Literal' : 'Resource'),
+        isLiteral,
+        props: {}
+      };
+    }
+    return nodeMap[uri];
+  }
+
+  for (const t of triples) {
+    const src = getOrCreate(t.s, t.sLabel, false);
+    if (t.oIsLiteral) {
+      // Store as property on source node
+      if (!src.props[t.pLabel]) src.props[t.pLabel] = [];
+      src.props[t.pLabel].push(t.oLabel);
+    } else {
+      const tgt = getOrCreate(t.o, t.oLabel, false);
+      if (t.p !== rdfType) {
+        links.push({ source: t.s, target: t.o, label: t.pLabel });
+      } else {
+        tgt.isType = true;
+      }
+    }
+  }
+
+  return { nodes: Object.values(nodeMap), links };
+}
+
+// ═══════════════════════════════════════════════
+// RENDER
+// ═══════════════════════════════════════════════
+function renderGraph(nodes, links) {
+  document.getElementById('drop-zone').classList.add('hidden');
+  document.getElementById('loading').style.display = 'flex';
+
+  allNodes = nodes; allLinks = links;
+
+  const container = document.getElementById('graph-container');
+  const W = container.clientWidth, H = container.clientHeight;
+
+  // Clear previous
+  d3.select('#graph-svg').selectAll('*').remove();
+
+  svgEl = d3.select('#graph-svg');
+  gEl   = svgEl.append('g');
+
+  // Zoom
+  zoomBehavior = d3.zoom().scaleExtent([0.05, 8]).on('zoom', e => {
+    gEl.attr('transform', e.transform);
+  });
+  svgEl.call(zoomBehavior);
+
+  // Arrow markers
+  const defs = svgEl.append('defs');
+  const uniqueColors = [...new Set(nodes.map(n => getColor(n.type)))];
+  uniqueColors.forEach(c => {
+    const safeId = 'arrow-' + c.replace('#','');
+    defs.append('marker')
+      .attr('id', safeId)
+      .attr('viewBox','0 -4 8 8').attr('refX',18).attr('refY',0)
+      .attr('markerWidth',6).attr('markerHeight',6).attr('orient','auto')
+      .append('path').attr('d','M0,-4L8,0L0,4').attr('fill',c).attr('opacity',0.7);
+  });
+
+  // Default arrow
+  defs.append('marker').attr('id','arrow-default')
+    .attr('viewBox','0 -4 8 8').attr('refX',18).attr('refY',0)
+    .attr('markerWidth',6).attr('markerHeight',6).attr('orient','auto')
+    .append('path').attr('d','M0,-4L8,0L0,4').attr('fill','#666').attr('opacity',0.7);
+
+  // Links
+  const linkG = gEl.append('g').attr('class','links');
+  const link = linkG.selectAll('g').data(links).join('g').attr('class','link');
+
+  link.append('line')
+    .attr('stroke','#444').attr('stroke-width',1.5)
+    .attr('marker-end','url(#arrow-default)');
+
+  link.append('text')
+    .attr('text-anchor','middle').attr('dy','-3')
+    .text(d => d.label);
+
+  // Nodes
+  const nodeG = gEl.append('g').attr('class','nodes');
+  const node  = nodeG.selectAll('g').data(nodes).join('g').attr('class','node')
+    .call(d3.drag()
+      .on('start', dragStart)
+      .on('drag',  dragged)
+      .on('end',   dragEnd))
+    .on('click', (e, d) => selectNode(d))
+    .on('mouseover', (e, d) => showTooltip(e, d))
+    .on('mouseout',  ()     => hideTooltip());
+
+  node.append('circle')
+    .attr('r', d => d.isType ? 6 : d.isLiteral ? 8 : 14)
+    .attr('fill', d => getColor(d.type))
+    .attr('stroke', '#0f1117').attr('stroke-width', 2)
+    .attr('opacity', d => d.isType ? 0.4 : 0.9);
+
+  node.append('text')
+    .attr('dy','1.2em').attr('text-anchor','middle')
+    .attr('y', d => d.isType ? 8 : 16)
+    .text(d => truncate(d.label, 20));
+
+  // Simulation
+  simulation = d3.forceSimulation(nodes)
+    .force('link', d3.forceLink(links).id(d=>d.id).distance(120).strength(0.5))
+    .force('charge', d3.forceManyBody().strength(-300))
+    .force('center', d3.forceCenter(W/2, H/2))
+    .force('collide', d3.forceCollide(30))
+    .on('tick', () => {
+      link.select('line')
+        .attr('x1',d=>d.source.x).attr('y1',d=>d.source.y)
+        .attr('x2',d=>d.target.x).attr('y2',d=>d.target.y);
+      link.select('text')
+        .attr('x',d=>(d.source.x+d.target.x)/2)
+        .attr('y',d=>(d.source.y+d.target.y)/2);
+      node.attr('transform',d=>`translate(${d.x},${d.y})`);
+    })
+    .on('end', () => {
+      document.getElementById('loading').style.display = 'none';
+    });
+
+  updateStats();
+  buildNodeList();
+  buildLegend();
+  buildFilterBar();
+}
+
+function truncate(s, n) { return s && s.length > n ? s.slice(0,n)+'…' : s; }
+
+function dragStart(e, d) {
+  if (!e.active) simulation.alphaTarget(0.3).restart();
+  d.fx = d.x; d.fy = d.y;
+}
+function dragged(e, d) { d.fx = e.x; d.fy = e.y; }
+function dragEnd(e, d) {
+  if (!e.active) simulation.alphaTarget(0);
+}
+
+// ═══════════════════════════════════════════════
+// SELECTION & INFO
+// ═══════════════════════════════════════════════
+function selectNode(d) {
+  selectedNode = d;
+  // Highlight
+  d3.selectAll('.node circle').attr('stroke','#0f1117').attr('stroke-width',2);
+  d3.selectAll('.node').filter(n=>n.id===d.id)
+    .select('circle').attr('stroke','#fff').attr('stroke-width',3);
+
+  switchTab('info');
+  showNodeInfo(d);
+
+  // highlight in list
+  document.querySelectorAll('.node-item').forEach(el => {
+    el.classList.toggle('selected', el.dataset.id === d.id);
+  });
+}
+
+function showNodeInfo(d) {
+  const panel = document.getElementById('info-panel');
+  let html = '';
+
+  html += `<div class="info-label">URI / ID</div>`;
+  html += `<div class="info-value">${d.id}</div>`;
+
+  html += `<div class="info-label">표시 이름</div>`;
+  html += `<div class="info-value" style="color:#7c9ef8;">${d.label}</div>`;
+
+  html += `<div class="info-label">타입</div>`;
+  html += `<div class="info-value" style="color:${getColor(d.type)}">${d.type}</div>`;
+
+  if (Object.keys(d.props).length) {
+    html += `<div class="info-label">속성</div>`;
+    for (const [k, vals] of Object.entries(d.props)) {
+      for (const v of vals) {
+        html += `<div class="prop-row"><span class="prop-key">${k}</span><span class="prop-val">${v}</span></div>`;
+      }
+    }
+  }
+
+  // Connected nodes
+  const outLinks = allLinks.filter(l => (l.source.id||l.source) === d.id);
+  const inLinks  = allLinks.filter(l => (l.target.id||l.target) === d.id);
+
+  if (outLinks.length) {
+    html += `<div class="info-label">연결 (발신 ${outLinks.length})</div>`;
+    outLinks.slice(0,10).forEach(l => {
+      const tgt = l.target.label || l.target;
+      html += `<div class="prop-row"><span class="prop-key">${l.label}</span><span class="prop-val">→ ${tgt}</span></div>`;
+    });
+  }
+  if (inLinks.length) {
+    html += `<div class="info-label">연결 (수신 ${inLinks.length})</div>`;
+    inLinks.slice(0,10).forEach(l => {
+      const src = l.source.label || l.source;
+      html += `<div class="prop-row"><span class="prop-key">${l.label}</span><span class="prop-val">← ${src}</span></div>`;
+    });
+  }
+
+  panel.innerHTML = html;
+}
+
+// ═══════════════════════════════════════════════
+// TOOLTIP
+// ═══════════════════════════════════════════════
+function showTooltip(e, d) {
+  const tt = document.getElementById('tooltip');
+  tt.style.display = 'block';
+  tt.style.left = (e.offsetX + 14) + 'px';
+  tt.style.top  = (e.offsetY - 10) + 'px';
+  tt.innerHTML = `<strong style="color:#7c9ef8">${d.label}</strong><br>
+    <span style="color:#888">Type:</span> <span style="color:${getColor(d.type)}">${d.type}</span>`;
+}
+function hideTooltip() {
+  document.getElementById('tooltip').style.display = 'none';
+}
+
+// ═══════════════════════════════════════════════
+// NODE LIST
+// ═══════════════════════════════════════════════
+function buildNodeList() {
+  const list = document.getElementById('node-list');
+  list.innerHTML = '';
+  allNodes.forEach(n => {
+    const div = document.createElement('div');
+    div.className = 'node-item';
+    div.dataset.id = n.id;
+    div.dataset.label = n.label.toLowerCase();
+    div.innerHTML = `<span class="node-dot" style="background:${getColor(n.type)}"></span>
+                     <span>${truncate(n.label, 28)}</span>`;
+    div.onclick = () => focusNode(n);
+    list.appendChild(div);
+  });
+}
+
+function filterNodes(q) {
+  q = q.toLowerCase();
+  document.querySelectorAll('.node-item').forEach(el => {
+    el.style.display = el.dataset.label.includes(q) ? '' : 'none';
+  });
+}
+
+function focusNode(d) {
+  selectNode(d);
+  // Pan to node
+  const W = document.getElementById('graph-container').clientWidth;
+  const H = document.getElementById('graph-container').clientHeight;
+  const scale = 1.5;
+  svgEl.transition().duration(600).call(
+    zoomBehavior.transform,
+    d3.zoomIdentity.translate(W/2 - scale*d.x, H/2 - scale*d.y).scale(scale)
+  );
+}
+
+// ═══════════════════════════════════════════════
+// LEGEND & FILTER
+// ═══════════════════════════════════════════════
+function buildLegend() {
+  const items = document.getElementById('legend-items');
+  items.innerHTML = '';
+  const types = [...new Set(allNodes.map(n=>n.type))];
+  types.forEach(t => {
+    const c = getColor(t);
+    items.innerHTML += `<div class="legend-item">
+      <div class="legend-color" style="background:${c}"></div>
+      <span style="font-size:11px">${truncate(t,22)}</span>
+    </div>`;
+  });
+}
+
+function buildFilterBar() {
+  const bar = document.getElementById('filter-bar');
+  bar.innerHTML = '';
+  const types = [...new Set(allNodes.map(n=>n.type))];
+  types.forEach(t => {
+    const chip = document.createElement('div');
+    chip.className = 'filter-chip';
+    chip.style.background = getColor(t) + '33';
+    chip.style.borderColor = getColor(t);
+    chip.style.color = getColor(t);
+    chip.textContent = t;
+    chip.onclick = () => toggleType(t, chip);
+    bar.appendChild(chip);
+  });
+}
+
+function toggleType(type, chip) {
+  if (hiddenTypes.has(type)) {
+    hiddenTypes.delete(type);
+    chip.classList.remove('off');
+  } else {
+    hiddenTypes.add(type);
+    chip.classList.add('off');
+  }
+  d3.selectAll('.node').style('display', d => hiddenTypes.has(d.type) ? 'none' : '');
+  d3.selectAll('.link').style('display', d => {
+    const sHide = hiddenTypes.has(d.source.type || '');
+    const tHide = hiddenTypes.has(d.target.type || '');
+    return (sHide || tHide) ? 'none' : '';
+  });
+}
+
+// ═══════════════════════════════════════════════
+// ZOOM / FIT
+// ═══════════════════════════════════════════════
+function zoom(factor) {
+  svgEl.transition().duration(300).call(zoomBehavior.scaleBy, factor);
+}
+
+function fitView() {
+  if (!allNodes.length) return;
+  const container = document.getElementById('graph-container');
+  const W = container.clientWidth, H = container.clientHeight;
+  const xs = allNodes.map(n=>n.x), ys = allNodes.map(n=>n.y);
+  const x0=Math.min(...xs),x1=Math.max(...xs),y0=Math.min(...ys),y1=Math.max(...ys);
+  const dx=x1-x0||1, dy=y1-y0||1;
+  const scale = Math.min(0.9, 0.9 * Math.min(W/dx, H/dy));
+  const cx = (x0+x1)/2, cy = (y0+y1)/2;
+  svgEl.transition().duration(600).call(
+    zoomBehavior.transform,
+    d3.zoomIdentity.translate(W/2 - scale*cx, H/2 - scale*cy).scale(scale)
+  );
+}
+
+function resetLayout() {
+  if (!simulation) return;
+  allNodes.forEach(d => { delete d.fx; delete d.fy; });
+  simulation.alpha(1).restart();
+}
+
+// ═══════════════════════════════════════════════
+// STATS
+// ═══════════════════════════════════════════════
+function updateStats() {
+  document.getElementById('stats-bar').textContent =
+    `노드: ${allNodes.length}  |  엣지: ${allLinks.length}`;
+}
+
+// ═══════════════════════════════════════════════
+// EXPORT
+// ═══════════════════════════════════════════════
+function exportSVG() {
+  const svg = document.getElementById('graph-svg');
+  const data = new XMLSerializer().serializeToString(svg);
+  const blob = new Blob([data], {type:'image/svg+xml'});
+  download(URL.createObjectURL(blob), 'graph.svg');
+}
+
+function exportPNG() {
+  const svg = document.getElementById('graph-svg');
+  const W = svg.clientWidth, H = svg.clientHeight;
+  const data = new XMLSerializer().serializeToString(svg);
+  const img  = new Image();
+  img.onload = () => {
+    const canvas = document.createElement('canvas');
+    canvas.width = W*2; canvas.height = H*2;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#0f1117';
+    ctx.fillRect(0,0,W*2,H*2);
+    ctx.scale(2,2);
+    ctx.drawImage(img, 0, 0);
+    download(canvas.toDataURL('image/png'), 'graph.png');
+  };
+  img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(data)));
+}
+
+function download(url, filename) {
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  a.click(); URL.revokeObjectURL(url);
+}
+
+// ═══════════════════════════════════════════════
+// FILE INPUT / DRAG DROP
+// ═══════════════════════════════════════════════
+document.getElementById('file-input').addEventListener('change', e => {
+  const files = Array.from(e.target.files);
+  loadFiles(files);
+  e.target.value = '';
+});
+
+const gc = document.getElementById('graph-container');
+gc.addEventListener('dragover', e => { e.preventDefault(); gc.classList.add('drag-over'); });
+gc.addEventListener('dragleave', () => gc.classList.remove('drag-over'));
+gc.addEventListener('drop', e => {
+  e.preventDefault();
+  gc.classList.remove('drag-over');
+  loadFiles(Array.from(e.dataTransfer.files));
+});
+
+function loadFiles(files) {
+  const ttlFiles = files.filter(f => /\.(ttl|n3|rdf|owl)$/i.test(f.name));
+  if (!ttlFiles.length) { alert('.ttl / .n3 / .rdf 파일을 선택하세요.'); return; }
+
+  let combined = '';
+  let loaded = 0;
+  ttlFiles.forEach(f => {
+    const reader = new FileReader();
+    reader.onload = ev => {
+      combined += '\n' + ev.target.result;
+      loaded++;
+      if (loaded === ttlFiles.length) processText(combined);
+    };
+    reader.readAsText(f, 'utf-8');
+  });
+}
+
+function processText(text) {
+  document.getElementById('ttl-editor').value = text;
+  try {
+    const { triples } = parseTTL(text);
+    if (!triples.length) { alert('트리플을 찾을 수 없습니다. TTL 형식을 확인해주세요.'); return; }
+    const { nodes, links } = buildGraph(triples);
+    renderGraph(nodes, links);
+  } catch(e) {
+    console.error(e);
+    alert('파싱 오류: ' + e.message);
+  }
+}
+
+function parseEditorContent() {
+  const text = document.getElementById('ttl-editor').value.trim();
+  if (!text) { alert('TTL 내용을 입력해주세요.'); return; }
+  processText(text);
+}
+
+function clearEditor() {
+  document.getElementById('ttl-editor').value = '';
+}
+
+function clearGraph() {
+  allNodes = []; allLinks = [];
+  typeColorMap = {}; hiddenTypes.clear();
+  if (simulation) simulation.stop();
+  d3.select('#graph-svg').selectAll('*').remove();
+  document.getElementById('node-list').innerHTML = '';
+  document.getElementById('info-panel').innerHTML = '<p style="color:#555;font-size:12px;">노드를 클릭하면 상세 정보가 표시됩니다.</p>';
+  document.getElementById('legend-items').innerHTML = '';
+  document.getElementById('filter-bar').innerHTML = '';
+  document.getElementById('stats-bar').textContent = '노드: 0 | 엣지: 0';
+  document.getElementById('drop-zone').classList.remove('hidden');
+}
+
+// ═══════════════════════════════════════════════
+// TAB
+// ═══════════════════════════════════════════════
+function switchTab(name) {
+  document.querySelectorAll('.tab-btn').forEach((b,i) => {
+    const names = ['nodes','info','editor'];
+    b.classList.toggle('active', names[i] === name);
+  });
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+}
+</script>
+</body>
+</html>
