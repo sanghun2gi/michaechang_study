@@ -1,37 +1,42 @@
 # CORS RINEX 30초 GNSS 전파교란 분석 실행 프롬프트
 
-- `CORS_RINEX30S_GNSS_interference_V7_multi_author.md` — 현재 판(V7). V6 계약을 그대로 계승하고 **여러 명의 작성자(사람 연구자 + 코딩 에이전트)가 동시에 실행**할 수 있도록 협업 계약을 추가했다.
+- `CORS_RINEX30S_GNSS_interference_V7_parallel.md` — 현재 판(V7). V6 계약을 그대로 계승하고, **이 계약의 작업을 역할이 다른 여러 워커 프로세스가 나누어 동시에 수행**할 수 있도록 병렬 실행 계약(39~41절)을 추가했다.
 
-## V6 → V7 변경 요약
+## 핵심 설계
 
-과학 분석 절차(단계 0~11, 12~38절)는 삭제·완화 없이 유지했고, 다음이 추가·수정되었다.
+- **병렬화 축 3가지**: 데이터 병렬(station×day 파티션) / 역할 병렬(독립 단계 동시 실행) / 구현 병렬(모듈 분담)
+- **하드 배리어 3개**: B1 인벤토리·품질 완료 → B2 기준선 동결 → B3 blind freeze. 통과 선언은 orchestrator만.
+- **pull 모델 작업 큐**: `queue/`에 결정적 `task_id`, 원자적 상태 전이, 리스·heartbeat, 재시도·poison 격리
+- **워커 12역할**: `orchestrator`, `W_INV`, `W_QC`, `W_EXT`, `W_FEAT`, `W_BASE`, `W_DET`, `W_NET`, `W_FALS`, `W_VAL`(unblinded, 별도 프로세스), `W_FIG`, `W_REP`(항상 1개)
+- **불변성**: `--shards N`·`--workers M`을 바꿔도 산출물 해시 동일. 다르면 성능 문제가 아니라 정확성 결함.
+
+## 병렬화하면 결과가 달라지는 지점 (단일 워커 강제)
+
+기준선·임계값 확정, blind freeze, NetworkEvent 병합·clustering 최종 실행, 공간 가중행렬 선택과 다중검정 보정 범위, claim registry·보고서 수치 확정.
+
+## 반드시 처리해야 하는 두 가지 함정
+
+1. **경계(halo)**: 일자·시간블록으로 자르면 창 특징·ROTI arc·StationEvent·NetworkEvent가 경계에서 잘린다. → 읽기 패딩 + 자기 구간만 쓰기 + 단일 reduce 재병합(`boundary_open` → `boundary_merged`)
+2. **분산 집계**: count·sum은 합산되지만 median·MAD·분위수는 파티션별로 구해 평균낼 수 없다. → 2-pass 또는 병합 가능한 스케치(t-digest 등) + 정확값 대비 오차 보고
+
+## V6 → V7 변경 위치
 
 | 위치 | 변경 |
 |---|---|
-| 문서 머리말 | 버전 V7, 1인 작업(`solo_mode`) 최소 적용 규칙, V7 개정 요약 13항 |
-| 명령 우선순위 | 3순위에 「다중 작성자 무결성」 추가 (개인 진도보다 우선) |
-| 역할 | 단일 수석 연구자 → `author_id`/`blind_status`/역할군 9종, 생산자·승인자 겸직 금지 |
-| 작업·안전 원칙 | 6항 확장(리스 없는 쓰기 금지) + 11~14항 신설(등록·supersede·방화벽·자기승인 금지) |
-| 프로젝트 구조 / 13절 | `config/authors.yaml`, `config/overrides/`, `coordination/`, `locks/`, `runs/`, `shared/`, `AUTHORS.md` |
-| 14절 설정 | `collaboration:` 블록(리스·승격·이중검토·방화벽·override 거버넌스), `contract_version: 'V7'` |
-| 15.1절 | 협업 원장 6종 추가, `PHASE_HANDOFF.md`에 소유자·검토자·리스·인수인계 필드 |
-| 22.6절(신설) | 작성자 수준 블라인드 방화벽, 위반 시 `blind_integrity=compromised` 처리 |
-| 27절 | partition manifest에 `author_id`·리스·승격 필드, 리스 기반 잠금·시계오차 규칙, 작성자 독립 결정성 |
-| 28.10절(신설) | 동시성·교차 작성자 재현·방화벽·승격 검증 시험 |
-| 29절 | `claim/release/claims/lock-status/promote/review/sync-status/verify-collab`, `--author` 필수 |
-| 30절 | 후보표·검토표에 생산자/검토자/조정자, 이중검토 비율과 검토자 간 일치도 보고 |
-| 32.1절 | claim registry에 `author_id`·`verified_by_author_id`·supersede 열 |
-| 33절 | `AUTHOR_REGISTRY.csv`, `COLLABORATION_PROTOCOL.md`, `CONTRACT_OWNERS.csv`, 분석자 자유도 한계 4항 |
-| 34절 | 게이트별 구현자·승인자 분리 의무, 불가 시 `deferred_review` |
-| 36·37절, 최종 산출물 | 협업 체크리스트, 응답 항목 22~27, `reports/16_collaboration_and_integrity.md` |
-| 39절(신설) | 다중 작성자 협업 계약 12개 소절(등록·청구·리스·충돌·승격·원장·방화벽·이중검토·설정·병렬화 축·인수인계·금지사항) |
-| 40절(신설) | 공동저자권·CRediT 기여표·저자 순서·AI 도구 공개·분쟁·가용성 책임 |
-| 41절(신설) | 계약 문서 자체의 공동 개정 절차·버전/해시 규칙·축약 금지 |
-| 실행을 시작하라 | 작성자 확정·작업 청구를 1~2번으로, 종료 시 리스 해제·인수인계를 마지막 단계로 |
-
-## 새 작성자가 처음 할 일
-
-1. `config/authors.yaml`에 `author_id`·역할·`blind_status` 등록 (에이전트는 `operated_by` 필수)
-2. `coordination/WORK_CLAIMS.csv`에서 남은 범위를 청구하고 리스 획득
-3. `runs/<run_id>__<author_id>/`에서 작업, 게이트·검토 통과 후 승격
-4. 종료 시 리스 해제 + `PHASE_HANDOFF.md`·`coordination/HANDOFF_LOG.md` 기록
+| 머리말 | 버전 V7, 워커 1개일 때의 최소 적용, V7 개정 요약 13항 |
+| 명령 우선순위 | 병렬화를 5순위로 명시(배리어·불변성이 우선) |
+| 역할 | `worker_id`/`role`/`shard`/`blind_status` 선언, 동시 실행 프로세스는 단일 역할 |
+| 작업·안전 원칙 | 6항(단일 writer) 확장 + 11~14항(provenance·파티션 소유·배리어·backpressure) |
+| 프로젝트 구조 / 13절 | `queue/`, `locks/`, `runs/<run_id>__<worker_id>/`, `validation_unblinded/`, `WORKER_STATUS.md` |
+| 14절 설정 | `parallel_execution:` 블록(역할별 워커 상한·샤딩·큐·배리어·halo·집계·자원·격리) |
+| 15.1절 | `WORKER_STATUS.md`, 큐 상태 기반 재개, handoff에 배리어·task 통계 |
+| 22.6절(신설) | 블라인드 워커 프로세스 격리(`W_VAL` 별도 프로세스·별도 경로·B3 이후 생성) |
+| 27절 | manifest에 `worker_id`/`task_id`/`shard_*`, 리스 기반 잠금, 샤드·워커 수 무관 결정성 |
+| 28.10절(신설) | 병렬 실행 시험(불변성·큐 원자성·배리어·경계·집계 근사·격리·backpressure) |
+| 29절 | `plan`, `worker --role`, `queue status`, `barrier declare`, `reduce`, `promote`, `requeue` |
+| 30·32·33·34절 | 후보·claim에 워커 provenance, `PARALLEL_EXECUTION_PLAN.md`, 게이트 선언 주체 |
+| 36·37절, 최종 산출물 | 병렬 실행 체크리스트, 응답 항목 22~27, `reports/16_parallel_execution_report.md` |
+| 39절(신설) | 병렬화 축·단계별 shard key 표·배리어·작업 큐·역할 정의·결정성·halo·분산 집계·자원·실패 격리·승격·금지사항 |
+| 40절(신설) | 실행 런북 — 40.1 데이터 처리 병렬(명령 순서), 40.2 구현 작업 병렬(인터페이스 동결 → 모듈 소유권 → 병합 순서), 40.3 최소 구성과 확장 |
+| 41절(신설) | 검증·성능 계약 — 직렬로 정확성 확보 후 R3에서 병렬 도입, 불변성·경계·집계 시험, 스케일 효율 실측 |
+| 실행을 시작하라 | R1·R2는 워커 1개 직렬, R3에서 큐·배리어·샤딩 도입, 불변성 통과 후에만 워커 증설 |

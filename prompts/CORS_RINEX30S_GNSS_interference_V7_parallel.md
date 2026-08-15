@@ -2,33 +2,33 @@
 
 # CORS RINEX 30초 GNSS 전파교란 분석 실행 프롬프트
 
-## V7 — 다중 작성자 협업 실행 보강판
+## V7 — 역할 분담 다중 워커 병렬 실행 보강판
 
-> **버전 계보**: V6(규모실행·과학검증·국제표준 정합 보강판)의 모든 조항을 계승하고, **여러 명의 작성자(사람 연구자와 코딩 에이전트)가 같은 프로젝트를 동시에 수행**할 수 있도록 작성자 등록·소유권·검토·저자권 계약을 추가한 판이다. V6의 과학적 제한, 증거등급 상한, 블라인드 격리, 원시자료 보호 조항은 어느 것도 완화되지 않았다. 파일명과 문서 버전을 **V7**로 일치시키며 설정의 `contract_version: 'V7'`으로 이 문서를 식별한다.
+> **버전 계보**: V6(규모실행·과학검증·국제표준 정합 보강판)의 모든 조항을 계승하고, **이 계약의 작업을 역할이 다른 여러 워커 프로세스가 나누어 동시에 수행**할 수 있도록 병렬 실행 계약(39~41절)을 추가한 판이다. V6의 과학적 제한, 증거등급 상한, 블라인드 격리, 누출방지, 원시자료 보호 조항은 어느 것도 완화되지 않았다. 파일명과 문서 버전을 **V7**로 일치시키며 설정의 `contract_version: 'V7'`으로 이 문서를 식별한다.
 
-> **작성자가 1명일 때**: 39~41절은 `config/authors.yaml`에 1인을 등록하고 `solo_mode: true`로 두면 최소 충족된다. 다만 산출물의 `author_id` 기록, 블라인드 시간 분리(22.6절), 문서 개정 이력(41절)은 1인 작업에서도 유지한다. 인원이 늘어날 때 계약을 다시 쓰지 않아도 되도록 처음부터 이 형식으로 기록하라.
+> **워커가 1개일 때**: 39~41절은 `parallel_execution.max_total_workers: 1`로 두면 그대로 직렬 실행이 된다. 그래도 작업 큐·배리어·샤딩 키·`worker_id` 기록은 유지한다. 나중에 워커를 늘릴 때 코드와 산출물 구조를 바꾸지 않아도 되게 하기 위함이다.
 
 이 문서는 계획서가 아니라 **실제 코드 작성, 실제 데이터 감사, 시험, R1→R5 규모 확장, 후보 반증, 외부검증, 최종보고서 생성까지 수행하게 하는 프로젝트 실행 계약**이다.
 
 ### 이번 개정(V7)에서 보강된 사항
 
-이 개정의 목적은 하나다. **여러 명의 작성자가 같은 계약을 동시에 실행해도 재현성·블라인드 무결성·증거등급이 훼손되지 않게 하는 것**이다. 협업 규칙은 편의사항이 아니라 과학적 무결성의 일부로 취급한다.
+목적은 하나다. **역할이 다른 여러 프로세스(워커)가 이 계약의 작업을 나누어 동시에 수행해도 결과가 직렬 실행과 동일해야 한다.** 병렬화는 속도 최적화이며, 어떤 경우에도 과학적 제한·게이트·블라인드 격리보다 앞설 수 없다.
 
-1. **작성자 등록·역할 계약**: `config/authors.yaml`과 `docs/AUTHOR_REGISTRY.csv`로 사람·에이전트 작성자를 등록하고, 모든 산출물·manifest·claim·로그에 `author_id`를 남긴다. → 역할, 39.1절, 32.1절
-2. **작업 청구·리스(lease) 계약**: `coordination/WORK_CLAIMS.csv`와 `locks/` 리스로 partition·Phase·문서 단위 단일 writer를 강제하고 만료·강제해제 이력을 남긴다. → 39.2~39.4절, 27절
-3. **작성자별 실행 샌드박스와 승격(promotion)**: `runs/<run_id>__<author_id>/`에서 생성하고 게이트·검토·해시 검증을 통과한 뒤에만 공유 산출물로 승격한다. → 39.5절, 13절
-4. **append-only 원장 병합 규칙**: 공유 CSV·Markdown은 타인 행을 수정·삭제하지 않고 추가와 `superseded_by`로만 갱신한다. → 39.6절
-5. **작성자 수준 블라인드 방화벽**: 공식 사건정보를 열람한 작성자는 블라인드 기준선·임계값·후보 생성 산출물을 만들거나 고칠 수 없다. 위반 시 `blind_integrity=compromised`를 남기고 재실행하거나 증거등급을 강등한다. → 22.6절, 39.7절
-6. **이중검토(dual control)와 검토자 간 일치도**: 후보 최종 판정과 게이트 승인은 생산자가 아닌 작성자가 수행하고, 다중 검토자 일치도(Cohen's κ 또는 동등 지표)와 불일치 조정 절차를 보고한다. → 39.8절, 30절, 34절
-7. **설정 거버넌스**: 공유 `analysis.yaml`과 작성자별 `config/overrides/<author_id>.yaml`을 분리하고 과학적 임계값의 개인 오버라이드를 금지하며, 모든 결과에 병합된 `effective_config_hash`를 기록한다. → 14절, 39.9절
-8. **작성자 독립 결정성**: 입력·설정·코드가 같으면 작성자·호스트·worker 수가 달라도 ID와 수치가 같아야 한다. 교차 작성자 재현 시험을 추가한다. → 27.3절, 28.10절
-9. **협업 CLI·상태 명령**: `--author`, `claim`, `release`, `claims`, `lock-status`, `promote`, `sync-status`, `verify-collab`, `review`를 추가한다. → 29절
-10. **공동저자권·기여 계약(CRediT)**: 논문별 기여표, 저자 순서 근거, AI 도구 사용 공개, 선물·유령 저자 금지, 최종 원고 승인 기록을 산출물로 만든다. 자동화 에이전트는 저자가 될 수 없고 도구로 공개한다. → 38.2·38.7절, 40절
-11. **분석자 자유도 한계 명문화**: 다중 분석자 환경의 researcher degrees of freedom, 검토자 간 판정 편차, 실행환경 차이에 의한 수치 편차를 과학적 제한에 추가한다. → 33절 `SCIENTIFIC_LIMITATIONS`
-12. **병렬화 안전축·위험축 구분**: station×일자 파티션은 분할 가능하지만 기준선·임계값·사건 병합·blind freeze·최종 claim 확정은 단일 소유자를 요구한다. → 39.10절
-13. **계약 문서 자체의 공동 개정 절차**: 절 소유자, 개정 제안·검토·승인, `contract_version`·`contract_hash` 규칙, 축약 금지. → 41절
+1. **실행 DAG와 병렬화 축 정의**: 각 단계의 작업 단위(shard key), 병렬 가능 여부, 선행 의존성, 하드 배리어를 표로 고정한다. → 39.1~39.3절
+2. **작업 큐와 pull 모델 워커**: `queue/tasks.*`에 원자적 상태 전이(pending→leased→done/failed/poison)를 두고, 워커가 자기 역할에 맞는 task를 가져간다. → 39.4절
+3. **워커 역할 계약**: `orchestrator`, `W_INV`, `W_QC`, `W_EXT`, `W_FEAT`, `W_BASE`, `W_DET`, `W_NET`, `W_FALS`, `W_VAL`, `W_FIG`, `W_REP`의 책임·쓰기 범위·병렬도를 분리한다. → 39.5절
+4. **샤드·워커 수 불변성**: shard 배정은 내용 해시 기반으로 하고, `--shards N`과 `--workers M`을 바꿔도 ID와 수치가 같아야 한다. → 39.6절, 41.2절
+5. **경계(halo) 처리 계약**: 창 특징·ROTI arc·StationEvent·NetworkEvent가 일자·시간블록 경계에서 잘리지 않도록 패딩과 재병합 reduce를 강제한다. → 39.7절
+6. **분산 집계 규칙**: count·sum은 합산하되 median·MAD·분위수는 2-pass 또는 스케치로만 결합하고 오차를 검증한다. 기준선(단계 5)의 병렬화 핵심이다. → 39.8절
+7. **하드 배리어 3종**: (B1) 인벤토리·품질 완료 전 특징 확대 금지, (B2) 기준선 동결 전 탐지 금지, (B3) blind freeze 전 공식 사건자료 사용 금지. 배리어 통과는 orchestrator만 선언한다. → 39.3절
+8. **블라인드 워커 격리**: `W_VAL`은 별도 프로세스·별도 출력경로로 실행하고, 블라인드 워커와 큐·캐시·산출물을 공유하지 않는다. → 39.5절, 22.6절
+9. **자원 예산과 backpressure**: 단계별 CPU/IO 바운드 특성, 워커당 peak RSS, 디스크 여유 기반 lease 중단, 외부 다운로드 single-flight. → 39.9절
+10. **실패 격리**: task 단위 재시도·poison 격리로 한 파일이 전체 실행을 멈추지 않게 하고, 격리 목록을 보고서에 명시한다. → 39.10절
+11. **역할별 실행 런북**: 데이터 처리 병렬(프로세스)과 구현 작업 병렬(모듈 분담)을 분리한 구체적 실행 순서와 명령. → 40절
+12. **병렬 실행 검증·성능 계약**: shard/worker 불변성 시험, 배리어 위반 탐지, 경계 사건 시험, 스케일 효율 실측. → 41절
+13. **협업 안전장치 최소본**: `worker_id` provenance, 리스 기반 단일 writer, 승격(promotion), 생산자와 다른 검토자에 의한 후보 판정. → 39.4·39.11절, 30절, 34절
 
-협업 조항 때문에 과학적 제한이 완화되는 일은 없다. 인원이 부족해 이중검토·역할 분리를 지킬 수 없으면 규칙을 낮추지 말고 `deferred_review`로 명시하고 해당 결과의 증거등급 상한과 표현을 낮춘다.
+병렬화 때문에 결과가 달라지면 그것은 성능 문제가 아니라 **정확성 결함**이다. 재현되지 않으면 워커 수를 1로 낮추고 원인을 찾은 뒤 다시 확장한다.
 
 ### 이전 개정(V6)에서 보강된 사항
 
@@ -61,12 +61,11 @@
 
 1. 원시자료와 사용자 파일 보호, 접근권한, 보안
 2. 관측된 사실과 추정의 분리, 과학적 제한, 허위 수치 금지
-3. 다중 작성자 무결성: 타인 산출물 무단 덮어쓰기 금지, 소유권·리스 준수, 블라인드 방화벽, 이중검토
-4. Phase 완료 게이트, 재현성, 누출 방지, 검증 계약
-5. 전체 규모 실행과 산출물 완성
-6. 성능 최적화와 표현 개선
+3. Phase 완료 게이트, 재현성, 누출 방지, 검증 계약, **배리어와 샤드 불변성**
+4. 전체 규모 실행과 산출물 완성
+5. 병렬화와 성능 최적화, 표현 개선
 
-작성자가 여럿이면 3항이 개인의 진도보다 우선한다. 자신의 작업을 진행하려고 타인의 잠금·동결(freeze)·검토 대기 상태를 임의로 해제하지 마라.
+병렬 실행은 5순위다. 배리어를 앞당기거나 기준선을 워커별로 따로 만들어 속도를 얻지 마라. 병렬 실행 결과가 직렬 실행과 다르면 병렬 실행을 멈추고 원인을 먼저 해결한다.
 
 다음 상태어를 실행로그와 보고서에서 일관되게 사용한다.
 
@@ -85,31 +84,19 @@
 
 당신은 GNSS 측지·항법, CORS 망 분석, RINEX 2/3/4, GNSS 신호품질 관리, 전파간섭 탐지, 시계열 이상탐지와 재현가능 연구 소프트웨어에 숙련된 수석 연구자이자 데이터 엔지니어다.
 
-이 프로젝트는 **여러 명의 작성자(사람 연구자와 코딩 에이전트)가 함께 수행한다.** 실행을 시작할 때 자신이 어떤 작성자로 일하는지 확정하고 모든 산출물에 기록하라.
+이 계약의 작업은 **역할이 다른 여러 워커 프로세스가 나누어 동시에 수행**한다. 실행을 시작할 때 자신이 어떤 워커로 도는지 확정하고 모든 산출물에 기록하라.
 
 ```text
-author_id            # authors.yaml에 등록된 안정 ID (예: kim_sh, agent_a1)
-author_kind          # human | agent
-operated_by          # agent인 경우 실행 책임자 author_id
-acting_roles         # 이번 세션에서 맡은 역할군
-blind_status         # blinded | unblinded (22.6절, 공식 사건정보 열람 여부)
-session_run_id       # 이번 실행의 run ID
-claimed_scopes       # 이번 세션에서 청구한 작업 범위(39.2절)
+worker_id            # 예: w_feat_03 (역할_일련번호)
+role                 # orchestrator | W_INV | W_QC | W_EXT | W_FEAT | W_BASE |
+                     # W_DET | W_NET | W_FALS | W_VAL | W_FIG | W_REP
+shard_index/shard_count
+blind_status         # blinded | unblinded (W_VAL만 unblinded)
+run_id, host_id, pid
+leased_task_ids
 ```
 
-역할군은 다음을 기본으로 하고 실제 인원수에 맞게 겸직할 수 있다. 단 **생산자와 최종 승인자의 겸직이 금지되는 항목**(34절 게이트 승인, 30절 후보 최종 판정, 22.6절 blind freeze 서명)은 예외 없이 분리한다.
-
-- `lead_integrator`: 계약 해석, 충돌 조정, 공유 설정·스키마 동결, 공유 산출물 승격 승인
-- `data_engineer`: 단계 0~3, 인벤토리·품질·시간/좌표 표준화, 파서
-- `feature_owner`: 단계 4~5, 특징·기준선·ROTI·대역차분
-- `detection_owner`: 단계 6~7, 이상탐지·망 동조성·공간통계
-- `falsification_owner`: 21절 반증 엔진과 대안설명 검토
-- `validation_owner`: 단계 8 공식 사건·외부출처 정규화 (기본 `unblinded`)
-- `stats_qa`: 24절 평가·다중검정·부트스트랩, 시험·정적검사
-- `writing_owner`: 보고서와 38절 원고 근거 패키지
-- `reviewer`: 타인 산출물의 이중검토와 게이트 승인
-
-인원이 1명이면 `solo_mode: true`로 등록하고, 겸직 금지 항목은 `deferred_review`로 기록한 뒤 시점을 달리한 자체 재검토와 그 기록으로 대체한다. 이는 인적 분리보다 약한 통제이므로 보고서에 명시한다.
+한 사람 또는 한 에이전트가 여러 역할을 순차로 수행할 수 있으나, **동시에 도는 프로세스는 하나의 역할만 맡는다.** 역할별 책임·쓰기 범위·병렬도는 39.5절에 있다. 워커를 1개만 쓸 때도 같은 구조로 실행한다.
 
 다음 로컬 폴더의 실제 파일을 직접 감사하고, 2021년부터 2026년까지 수집된 것으로 알려진 CORS RINEX 30초 자료를 분석하여 GNSS 전파교란 의심 사건을 탐색·검증하는 재현가능한 분석 시스템을 구축하고 실제 자료에 실행하라.
 
@@ -158,15 +145,15 @@ claimed_scopes       # 이번 세션에서 청구한 작업 범위(39.2절)
 3. 기존 코드·보고서·결과가 있으면 완성되었다고 가정하지 말고 먼저 감사한다. 검증된 부분은 최대한 재사용하되, 검증되지 않은 결과는 새 결과와 분리한다.
 4. 전체 파일을 메모리에 한꺼번에 적재하지 마라. 헤더 전수조사 후 일자·관측소 단위 스트리밍 또는 청크 처리와 Parquet 파티션을 사용한다.
 5. 긴 실행은 재시작 가능하고 멱등적이어야 한다. 이미 정상 완료된 파티션은 해시와 설정이 같을 때 건너뛰고, 실패한 파티션만 다시 실행한다.
-6. 서로 다른 작성자·에이전트·프로세스가 같은 산출물을 동시에 수정하지 않도록 한다. 공유 산출물에 쓰기 전에 39.2~39.3절의 작업 청구와 리스를 획득하고, 리스 없이 쓰지 마라. 읽기는 잠금 없이 자유롭다.
+6. 서로 다른 워커·에이전트·프로세스가 같은 산출물을 동시에 수정하지 않도록 한다. 하나의 파티션에는 하나의 writer만 둔다(39.4절 작업 큐와 리스). 읽기는 잠금 없이 자유롭다.
 7. 분석을 시작하기 전에 사용 가능한 디스크, CPU, RAM을 기록하고 예상 임시공간과 출력용량을 계산한다. 여유공간이 안전마진을 충족하지 못하면 원시자료를 건드리지 말고 축소 실행 및 필요한 공간을 보고한다.
 8. 광범위한 질문을 먼저 던지고 멈추지 마라. 실제 폴더를 먼저 읽기 전용으로 감사하고 합리적인 기본값으로 파일럿을 완성하라. 경로 접근 불가, 암호화 파일, 필수 권한 부족처럼 실제로 진행 불가능한 경우에만 정확한 오류와 필요한 조치를 보고한다.
 9. 작업 중 `PROGRESS.md`, `DECISIONS.md`, `SURPRISES.md`, `RUN_LOG.md`를 계속 갱신한다. 중단되더라도 이 네 파일과 설정만으로 재개할 수 있어야 한다.
 10. `TODO`, 빈 함수, 가짜 데이터, 임시 성공처리로 완료를 선언하지 마라.
-11. 모든 실행은 등록된 `author_id`로 수행한다. 미등록·익명 실행으로 공유 산출물을 만들지 마라.
-12. 타인이 만든 산출물·행·판정을 지우거나 덮어쓰지 말고 새 행과 `superseded_by`로 갱신한다. 타인 잠금의 강제해제는 39.4절 절차와 기록이 있을 때만 허용한다.
-13. 공식 사건정보를 열람한 작성자는 블라인드 트랙 산출물을 생성·수정하지 않는다(22.6절).
-14. 자신이 생산한 후보의 최종 판정과 자신이 구현한 Phase의 게이트 승인을 스스로 하지 않는다. 불가피하면 `deferred_review`로 명시하고 증거등급 상한을 낮춘다.
+11. 모든 실행은 `worker_id`·`role`·`run_id`를 기록한다. 어떤 산출물이 어떤 워커·샤드에서 나왔는지 추적할 수 없으면 신뢰하지 않는다.
+12. 워커는 자신이 lease한 task의 출력 경로에만 쓴다. 타인의 파티션은 읽기만 하고 조용히 재계산해 덮어쓰지 않는다.
+13. 배리어(39.3절)를 워커가 스스로 넘지 않는다. 통과 선언은 orchestrator만 한다.
+14. 병렬 실행 중 자원 부족·디스크 포화가 발생하면 새 task lease를 멈추고 진행 중 task를 정상 종료시킨다. 강제 종료로 부분 산출물을 남기지 마라.
 
 # 프로젝트 구조
 
@@ -177,8 +164,6 @@ claimed_scopes       # 이번 세션에서 청구한 작업 범위(39.2절)
       pyproject.toml 또는 requirements-lock.txt
       config/
         analysis.yaml
-        authors.yaml
-        overrides/
         official_events_template.csv
       src/
         rinex_interference/
@@ -194,11 +179,9 @@ claimed_scopes       # 이번 세션에서 청구한 작업 범위(39.2절)
       figures/
       reports/
       logs/
-      coordination/
+      queue/
       locks/
       runs/
-      shared/
-      AUTHORS.md
       PROGRESS.md
       DECISIONS.md
       SURPRISES.md
@@ -640,7 +623,7 @@ RINEX 단독 분석은 원칙적으로 E3을 넘지 않는다. 공식 사건자�
 - `reports/13_standards_terminology_alignment.md` — 본 분석의 분류·용어와 ICAO Doc 9849/Annex 10, ITU-R M.1901·M.1902·M.1903·M.1905, IGS 품질관리 용어의 대응표. 각 대응이 `일치` / `부분 대응` / `본 자료로 판정 불가` 중 무엇인지 명시
 - `reports/14_data_and_code_availability.md` — 학술지 제출 대비 데이터·코드 가용성 서술 초안. 원시자료 접근제한, 공개 가능한 파생산출물 범위, 잠금 의존성·설정·해시로 재현 가능함을 기술 (실제 아카이빙·DOI 발급은 수행하지 말고 필요 절차만 기록)
 - `reports/15_evaluation_protocol_and_results.md` — calibration/holdout, block bootstrap, matched control, multiple testing, 지표별 분모·CI·ground-truth 한계
-- `reports/16_collaboration_and_integrity.md` — 참여 작성자·역할·기여 범위, 작업 청구·승격 이력, 이중검토 수행률과 검토자 간 일치도, 블라인드 방화벽 준수와 위반·조치, 교차 작성자 재현 결과, `deferred_review` 항목과 그로 인한 증거등급 제한
+- `reports/16_parallel_execution_report.md` — 실행 DAG와 배리어 이력, 역할별 워커 수와 task 통계, shard/worker 불변성 시험 결과, 경계 재병합 통계, 분산 집계 근사 오차, 워커 수별 처리량·병목·자원 사용, poison task와 그 영향
 - `reports/manual_review_queue.csv`
 - `figures/` 아래 사건별 PNG와 전체 요약 그림
 - 실행 가능한 CLI 또는 스크립트
@@ -675,7 +658,7 @@ RINEX 단독 분석은 원칙적으로 E3을 넘지 않는다. 공식 사건자�
 6. 확정할 수 없는 사항과 그 이유
 7. 최종보고서, 사건목록, 재현방법, 로그의 경로
 8. 전체기간 실행 완료 여부와 남은 작업
-9. 이번 세션의 작성자·역할, 남아 있는 잠금·승격 대기 항목, 다음 담당 작성자
+9. 병렬 실행 구성(역할별 워커 수·shard 수)과 큐에 남은 task, 다음 재개 명령
 
 경로에 접근하지 못했거나 실제 분석을 완료하지 못했으면 `분석 완료`라고 말하지 마라. 생성한 코드와 파일럿만 있다면 그 범위를 정확히 밝힌다.
 
@@ -704,9 +687,9 @@ RINEX 단독 분석은 원칙적으로 E3을 넘지 않는다. 공식 사건자�
 
 ---
 
-# 규모실행·협업 운영 계약 (V6 계승, V7 확장)
+# 규모실행·병렬실행 운영 계약 (V6 계승, V7 확장)
 
-아래 조항은 앞의 과학 분석 절차를 실제 대규모 프로젝트로 완성하기 위한 추가 요구다. 12~38절은 V6에서 계승했고 39~41절이 V7의 다중 작성자 계약이다. 앞 절과 중복되면 더 엄격한 조항을 따른다.
+아래 조항은 앞의 과학 분석 절차를 실제 대규모 프로젝트로 완성하기 위한 추가 요구다. 12~38절은 V6에서 계승했고 39~41절이 V7의 다중 워커 병렬 실행 계약이다. 앞 절과 중복되면 더 엄격한 조항을 따른다.
 
 # 12. CORS 고정망 분석 단위와 안정적 ID
 
@@ -764,8 +747,6 @@ analysis_30s_interference/
 ├─ .gitignore
 ├─ config/
 │  ├─ analysis.yaml
-│  ├─ authors.yaml
-│  ├─ overrides/            # <author_id>.yaml, 허용 키만
 │  ├─ paths.example.yaml
 │  ├─ thresholds.yaml
 │  ├─ official_events_template.csv
@@ -829,21 +810,19 @@ analysis_30s_interference/
 ├─ logs/
 ├─ checkpoints/
 ├─ manifests/
+│  ├─ partitions/
+│  └─ promotions.csv
+├─ queue/
+│  ├─ tasks.sqlite 또는 tasks/            # 작업 큐(39.4절)
+│  ├─ barriers.json                       # 배리어 상태(39.3절)
+│  └─ poison/                             # 격리된 실패 task
+├─ locks/                                 # <scope_hash>.lock, 원자적 생성
+├─ runs/<run_id>__<worker_id>/            # 워커별 임시·부분 산출물
+├─ validation_unblinded/                  # W_VAL 전용 출력(블라인드 워커 접근 금지)
 ├─ docs/
-├─ manuscripts/
-├─ coordination/
-│  ├─ WORK_CLAIMS.csv
-│  ├─ LOCK_EVENTS.csv
-│  ├─ REVIEW_LOG.csv
-│  ├─ BLIND_FIREWALL.csv
-│  ├─ HANDOFF_LOG.md
-│  └─ OPEN_QUESTIONS.md
-├─ locks/                   # <scope_hash>.lock, 원자적 생성
-├─ runs/                    # <run_id>__<author_id>/ 작성자별 실행 샌드박스
-├─ shared/                  # 승격된 공식 산출물
-├─ AUTHORS.md
 ├─ PROGRESS.md
 ├─ PHASE_HANDOFF.md
+├─ WORKER_STATUS.md
 ├─ DECISIONS.md
 ├─ SURPRISES.md
 └─ RUN_LOG.md
@@ -851,7 +830,7 @@ analysis_30s_interference/
 
 `paths.example.yaml`만 저장소에 공개 가능하게 두고 실제 절대경로는 별도 로컬 설정 또는 환경변수로 주입한다. 표와 보고서에는 원시루트 기준 상대경로만 기록한다.
 
-작성자별 산출물은 `runs/<run_id>__<author_id>/` 아래에서 만들고, 게이트·검토·해시 검증을 통과한 뒤에만 `shared/` 또는 최상위 공식 경로로 승격한다(39.5절). 승격되지 않은 개인 결과를 보고서·논문 수치로 인용하지 마라. `inventory/`, `features/`, `candidates/` 같은 최상위 산출물 경로는 승격된 결과를 담는 공식 경로로 취급한다.
+워커는 `runs/<run_id>__<worker_id>/`에 부분 산출물을 만들고, 완료·검증된 파티션만 공식 경로(`features/`, `candidates/` 등)로 원자적 이동(승격)한다. 승격되지 않은 개인 산출물을 보고서 수치로 쓰지 마라.
 
 # 14. 설정 계약
 
@@ -864,39 +843,59 @@ project:
   timezone_report: Asia/Seoul
   language: ko
 
-collaboration:
-  authors_file: config/authors.yaml
-  require_author_id: true
-  solo_mode: false                       # 1인 작업이면 true, 사유를 DECISIONS.md에 남긴다
-  claim_scope_levels: [phase, partition, station_year, module_path, document, review]
-  lease_minutes_default: 120
-  lease_heartbeat_minutes: 10
-  stale_lease_grace_minutes: 30
-  lock_backend: atomic_create_o_excl     # 원자적 생성을 보장 못하는 공유 저장소는 doctor에서 차단
-  max_clock_skew_seconds: 60
-  private_run_root: runs                 # runs/<run_id>__<author_id>/
-  shared_root: shared
-  promotion_requires: [gate_passed, reviewer_signoff, hash_match, schema_match]
-  promotion_approver_roles: [lead_integrator]
-  ledger_write_policy: append_only_with_supersede
-  forbid_overwrite_other_author_rows: true
-  dual_control:
-    candidate_adjudication: true
-    gate_approval: true
-    require_reviewer_differs_from_producer: true
-    inter_rater_metric: cohens_kappa
-    min_double_reviewed_fraction: 0.20   # configured, 교정 전 과학적 사실이 아니다
-    disagreement_policy: adjudicate_never_average
-  blind_firewall:
-    enforce: true
-    unblinded_roles: [validation_owner]
-    blinded_artifacts: [baselines, thresholds, candidates_blind, freeze_manifest]
-    violation_policy: mark_compromised_and_rerun
-  config_override:
-    allowed_keys: [paths, processing.max_workers, processing.batch_rows, logging, runtime]
-    forbidden_keys: [baseline, windows, evaluation, space_weather, spatial_statistics,
-                     frequency_profiling, official_validation, geometry, retention]
-    record_effective_hash: true
+parallel_execution:
+  enabled: true
+  max_total_workers: auto_bounded        # min(CPU-2, RAM/worker_peak_rss, IO 한계)
+  role_worker_limits:                    # 역할별 동시 인스턴스 상한(실측 후 조정)
+    W_INV: 6
+    W_QC: 6
+    W_EXT: 2                             # 외부 다운로드는 소수·single-flight
+    W_FEAT: 8
+    W_BASE: 4
+    W_DET: 8
+    W_NET: 2                             # 시간블록 단위, 경계 재병합 필요
+    W_FALS: 4
+    W_VAL: 1                             # unblinded, 별도 프로세스
+    W_FIG: 4
+    W_REP: 1
+  shard:
+    key_policy: content_hash_of_shard_key   # 파일 열거 순서 의존 금지
+    default_shards: 16
+    invariance_test_shards: [1, 4, 16]
+  queue:
+    backend: sqlite_wal                  # 또는 원자적 rename 기반 디렉터리 큐
+    location_must_be_local_disk: true    # 네트워크 공유의 잠금 semantics 신뢰 금지
+    lease_seconds_default: 3600
+    heartbeat_seconds: 60
+    stale_lease_grace_seconds: 900
+    max_attempts: 3
+    backoff_seconds: [30, 120, 600]
+    poison_policy: isolate_and_continue
+  barriers:
+    b1_inventory_quality_complete: required
+    b2_baseline_frozen: required
+    b3_blind_freeze_before_official: required
+    declared_by_role: orchestrator
+  halo:
+    window_feature_padding_seconds: 900  # windows.sizes_seconds 최대값 이상
+    roti_arc_padding_seconds: 1800
+    event_merge_padding_seconds: 600
+    network_block_padding_seconds: 120   # >= network_alignment_tolerance_seconds
+  aggregation:
+    additive_stats: [count, sum, sum_sq, min, max, histogram_bins]
+    order_statistics_policy: two_pass_or_sketch
+    sketch_method: t_digest              # 또는 kll, fixed_bin_histogram
+    sketch_accuracy_check: required      # 정확값 대비 오차 보고
+  resources:
+    worker_peak_rss_mb_budget: configured
+    min_free_disk_gb_to_lease: configured
+    io_bound_stages: [inventory, parse, decompress]
+    cpu_bound_stages: [features, roti, detection, spatial_statistics]
+    decompress_cache_single_flight: true
+  isolation:
+    unblinded_roles: [W_VAL]
+    unblinded_output_root: validation_unblinded
+    forbid_shared_queue_with_blinded_roles: true
 
 constellations:
   include: [G, R, E, C]                # 기본 분석 대상
@@ -1049,18 +1048,12 @@ external_validation_sources:
 
 - `PROGRESS.md`: 완료·진행·대기 작업, 실측 범위, 마지막 성공 checkpoint
 - `PHASE_HANDOFF.md`: 현재 Phase, 게이트 결과, 실패항목, 다음 정확한 명령
-- `DECISIONS.md`: 선택, 근거, 대안, 영향, 되돌리는 방법, 제안자(`proposed_by`)·승인자(`approved_by`)·승인시각
+- `DECISIONS.md`: 선택, 근거, 대안, 영향, 되돌리는 방법
 - `SURPRISES.md`: 예상과 다른 데이터·성능·품질 발견
-- `RUN_LOG.md`: 실행시각, 명령, run ID, `author_id`, 종료코드, 산출물
-- `AUTHORS.md`: 작성자·역할·활동기간 요약 (권한 원본은 `config/authors.yaml`)
-- `coordination/WORK_CLAIMS.csv`: 작업 청구와 리스 상태
-- `coordination/LOCK_EVENTS.csv`: 잠금 획득·만료·강제해제 이력
-- `coordination/REVIEW_LOG.csv`: 이중검토 배정·결과·불일치 조정
-- `coordination/BLIND_FIREWALL.csv`: 공식 사건정보 열람 이력과 방화벽 상태
-- `coordination/HANDOFF_LOG.md`: 작성자 간 인수인계 기록
-- `coordination/OPEN_QUESTIONS.md`: 미결 쟁점, 담당자, 기한, 결정 상태
+- `RUN_LOG.md`: 실행시각, 명령, run ID, `worker_id`·`role`·shard, 종료코드, 산출물
+- `WORKER_STATUS.md`: 현재 살아 있는 워커, 역할, lease 중인 task, 마지막 heartbeat, 처리량, 배리어 상태
 
-협업 파일은 모두 append-only 원장으로 다루고 각 행에 `record_id`, `author_id`, `recorded_at_utc`, `run_id`를 남긴다. 중단되더라도 이 파일들과 설정만으로 다른 작성자가 이어받을 수 있어야 한다.
+`queue/`의 task 상태와 `WORKER_STATUS.md`만으로 "지금 무엇이 돌고 있고 무엇이 남았는지"를 알 수 있어야 한다. 워커가 모두 죽어도 큐와 partition manifest로 재개할 수 있어야 한다.
 
 `PHASE_HANDOFF.md` 최소 항목:
 
@@ -1081,14 +1074,10 @@ failed_checks
 last_valid_checkpoint
 exact_resume_command
 next_phase_entry_condition
-owner_author_id
-co_workers
-reviewer_author_id
-approver_author_id
-lease_expiry_utc
-blind_status
-handoff_to_author_id
-handoff_checklist
+barrier_state              # B1/B2/B3 통과 여부와 선언시각
+tasks_total/done/failed/poison
+active_workers_by_role
+measured_throughput_per_worker
 ```
 
 ## 15.2 완료 게이트 원칙
@@ -1792,17 +1781,15 @@ miss를 숨기지 말고 sampling, station coverage, 품질, feature coverage를
 - 공식사건 주변이 정상학습에 들어갔는가?
 - Track A와 Track B 성능표현을 혼합했는가?
 
-## 22.6 작성자 수준 블라인드 방화벽
+## 22.6 블라인드 워커 프로세스 격리
 
-누출은 코드·데이터뿐 아니라 **사람과 에이전트의 기억**을 통해서도 일어난다.
+병렬 실행에서 누출은 코드뿐 아니라 **프로세스 구성**으로도 발생한다.
 
-- `config/authors.yaml`에서 각 작성자를 `blinded` 또는 `unblinded`로 선언하고, 공식 사건 원문·NOTAM·항행경보·언론 사건목록을 열람한 시점을 `coordination/BLIND_FIREWALL.csv`(`author_id, source_or_artifact, viewed_at_utc, scope, run_id`)에 기록한다.
-- `unblinded` 작성자는 다음을 생성·수정할 수 없다: 기준선 파라미터, 임계값, 블라인드 후보 생성·병합 규칙, blind freeze manifest.
-- `blinded` 작성자는 `validation/`의 공식 사건표와 unblinded figure를 열람하지 않는다. 필요하면 `lead_integrator`가 시각·지역을 제거한 요약만 전달한다.
-- 작업 배정 자체가 누출 경로다. "이 날짜를 먼저 보라" 같은 지시로 공식 사건 시각을 간접 전달하지 말고, 블라인드 작성자에게는 관측소·기간을 균질하게 배정한다.
-- blind freeze는 blinded 작성자가 서명(`freeze_signed_by`)하고 unblinded 작성자는 검증만 한다.
-- 방화벽 위반이 확인되면 은폐하지 말고 해당 산출물에 `blind_integrity=compromised`를 남기고 다음 중 하나를 수행한다. (a) 영향 범위 재실행, (b) 해당 후보를 블라인드 성과에서 제외하고 replay 결과로만 보고, (c) 증거등급 상한 강등. 선택과 근거를 `DECISIONS.md`와 `docs/CORRECTIONS.md`에 남긴다.
-- 1인 작업에서는 인적 분리가 불가능하므로 시간 분리로 대체한다. 블라인드 산출물을 먼저 동결·해시한 뒤에만 공식 사건자료를 열람하고, 그 순서를 `RUN_LOG.md`의 시각으로 증명한다. 시간 분리가 인적 분리보다 약한 통제임을 보고서에 명시한다.
+- `W_VAL`(공식 사건 정규화·replay)은 별도 프로세스로 실행하고 출력은 `validation_unblinded/`에만 쓴다. 블라인드 워커는 이 경로를 읽지 않는다.
+- 블라인드 워커와 `W_VAL`은 같은 작업 큐를 공유하지 않는다. task 이름·shard key에 공식 사건 시각·지역이 드러나지 않게 한다(`official_event_id`만 사용).
+- 배리어 B3(blind freeze) 이전에는 `W_VAL` task를 큐에 넣지 않는다. orchestrator가 freeze manifest 해시를 기록한 뒤에만 생성한다.
+- 하나의 에이전트·사람이 두 역할을 순차 수행해야 한다면, 블라인드 산출물을 먼저 동결·해시한 뒤에만 공식 자료를 열람하고 그 순서를 `RUN_LOG.md` 시각으로 증명한다. 이는 프로세스 분리보다 약한 통제이므로 보고서에 명시한다.
+- 격리 위반이 확인되면 해당 산출물에 `blind_integrity=compromised`를 남기고 영향 범위를 재실행하거나 증거등급을 강등한다. 은폐하지 마라.
 
 # 23. 증거등급 적용 규칙
 
@@ -2075,12 +2062,14 @@ output_hashes
 status
 error_class
 retry_count
-author_id
+worker_id
+role
+shard_index
+shard_count
 lease_id
 lease_expiry_utc
+task_id
 promoted_from_run_id
-promoted_by_author_id
-reviewed_by_author_id
 ```
 
 ## 27.2 재개 규칙
@@ -2088,10 +2077,10 @@ reviewed_by_author_id
 - input fingerprint, config hash, code hash, schema version이 모두 같고 output hash가 유효할 때만 skip한다.
 - partial `.tmp`는 성공 산출물이 아니다.
 - checksum mismatch는 해당 partition만 격리·재실행한다.
-- 동일 partition의 동시 write를 리스 기반 lock으로 막는다. 리스는 `author_id`, `run_id`, `host`, `pid`, `heartbeat_at_utc`, `lease_expiry_utc`를 포함한다.
-- stale lock 판단기준(`stale_lease_grace_minutes`)과 강제해제 이력을 `coordination/LOCK_EVENTS.csv`에 남긴다. heartbeat가 살아 있는 리스는 강제해제하지 않는다.
-- 다른 작성자가 완료한 partition은 input fingerprint·config·code·schema·output hash가 모두 일치할 때 재계산하지 않고 재사용하되, 재사용 사실과 원 작성자를 provenance에 남긴다.
-- 호스트 간 시계 오차가 `max_clock_skew_seconds`를 넘으면 리스 판단을 신뢰하지 말고 `doctor`에서 차단한다.
+- 동일 partition의 동시 write를 리스 기반 lock으로 막는다. 리스는 `worker_id`, `role`, `run_id`, `host`, `pid`, `heartbeat_at_utc`, `lease_expiry_utc`를 포함한다.
+- stale lock 판단기준(`stale_lease_grace_seconds`)과 강제해제·재할당 이력을 남긴다. heartbeat가 살아 있는 리스는 회수하지 않는다.
+- 죽은 워커의 부분 산출물(`.tmp`)은 삭제하지 말고 격리한 뒤 task를 재할당한다.
+- 다른 워커가 완료한 partition은 input fingerprint·config·code·schema·output hash가 모두 일치할 때만 재사용하고, 재사용 사실을 provenance에 남긴다.
 - retryable/non-retryable error를 구분한다.
 
 ## 27.3 결정성
@@ -2101,8 +2090,9 @@ reviewed_by_author_id
 - floating aggregation tolerance를 명시한다.
 - worker 수와 chunk 크기가 event ID를 바꾸지 않아야 한다.
 - 중단·resume 결과가 uninterrupted run과 동일해야 한다.
-- `author_id`, host 이름, 청구 순서, 허용된 개인 override(경로·worker 수·배치 크기)는 ID와 수치에 영향을 주지 않아야 한다. 이들은 provenance 열에만 나타난다.
-- 서로 다른 작성자가 같은 입력·설정·코드로 실행한 산출물의 내용 해시가 provenance 열을 제외하고 동일해야 한다(28.10절).
+- `worker_id`, `role`, host, shard 배정, task 처리 순서, lease 시각은 ID와 수치에 영향을 주지 않는다. provenance 열에만 나타난다.
+- `--shards N`, `--workers M`을 바꿔도 산출물이 동일해야 한다(41.2절 불변성 시험). shard 배정은 내용 해시 기반으로만 계산한다.
+- 부동소수 합산 순서에 의존하는 집계는 금지한다. 결합 순서와 무관한 방식(정렬된 축약, Kahan 합산, 고정 bin 히스토그램)을 쓰고 허용 tolerance를 명시한다.
 
 # 28. 상세 시험 계약
 
@@ -2224,19 +2214,19 @@ run ID, 임시경로 같은 비결정 field만 명시적으로 normalize한다.
 
 시험 수를 부풀리지 말고 pass/fail/skip과 skip 이유를 보고한다.
 
-## 28.10 다중 작성자 동시성·무결성 시험
+## 28.10 병렬 실행 시험
 
-- 두 프로세스가 같은 `scope_key`를 동시에 청구할 때 정확히 하나만 성공하고 나머지는 대기 또는 명확한 오류코드를 받는다.
-- 리스 만료 후 회수, heartbeat가 살아 있는 리스의 강제해제 차단, 강제해제 시 기록 누락 차단
-- 원자적 생성·잠금을 보장하지 못하는 공유 파일시스템에서 `doctor`가 실행을 차단하는지
-- append-only 원장에 두 작성자가 동시에 추가해도 행 손실·중복·순서 붕괴가 없는지
-- 교차 작성자 재현: `author_id`와 host만 다른 두 실행의 산출물 해시가 provenance 열을 제외하고 동일한지
-- 개인 override에 금지 키가 있으면 실행이 거부되고 `effective_config_hash`가 정확히 기록되는지
-- `unblinded` 작성자가 blinded artifact에 쓰려 할 때 차단되는지
-- `reviewer_id == producer_id`인 최종 판정·게이트 승인이 거부되는지
-- 승격 시 게이트 결과·서명·해시·스키마 검증 실패가 차단되는지
-- 시계 오차를 주입했을 때 리스 판단이 안전측(거부)으로 동작하는지
-- 중단된 타 작성자의 `.tmp` 산출물을 회수 과정에서 삭제하지 않고 격리하는지
+- shard 불변성: `--shards 1/4/16`의 산출물 해시 동일(provenance 열 제외)
+- worker 불변성: `--workers 1`과 `--workers N`의 산출물 해시 동일
+- 큐 원자성: 두 워커가 같은 task를 동시에 lease할 때 정확히 하나만 성공
+- 리스 만료 후 재할당, heartbeat 유지 중 회수 차단, 죽은 워커의 `.tmp` 격리
+- 배리어: B2 이전 탐지 task가 leasable 되지 않는지, B3 이전 `W_VAL` task가 생성되지 않는지
+- 경계 사건: 자정·시간블록 경계를 걸치는 StationEvent·NetworkEvent·ROTI arc가 패딩·재병합 후 직렬 실행과 동일한지
+- 분산 집계: 스케치 기반 median·MAD·분위수와 정확값의 오차가 허용 범위인지
+- 부동소수 결합 순서 무관성: 축약 순서를 바꿔도 tolerance 안에서 동일한지
+- 실패 격리: poison task가 있어도 나머지 shard가 완료되는지
+- backpressure: 디스크 여유 임계 이하에서 신규 lease가 중단되는지
+- 블라인드 격리: 블라인드 워커가 `validation_unblinded/`를 읽거나 `W_VAL` task를 lease하려 할 때 차단되는지
 
 # 29. CLI 계약
 
@@ -2262,25 +2252,35 @@ python -m rinex_interference.cli resume --run-id <RUN_ID>
 python -m rinex_interference.cli verify --run-id <RUN_ID>
 ```
 
-다중 작성자 운용 명령:
+병렬 실행 명령:
 
 ```powershell
-python -m rinex_interference.cli claim --scope partition --key <SCOPE_KEY> --author <AUTHOR_ID> --lease-minutes 120
-python -m rinex_interference.cli release --scope partition --key <SCOPE_KEY> --author <AUTHOR_ID>
-python -m rinex_interference.cli claims --status open --author <AUTHOR_ID>
-python -m rinex_interference.cli lock-status --scope partition --key <SCOPE_KEY>
-python -m rinex_interference.cli promote --run-id <RUN_ID> --author <AUTHOR_ID> --approver <APPROVER_ID>
-python -m rinex_interference.cli review assign --candidate <CANDIDATE_ID> --reviewer <AUTHOR_ID>
-python -m rinex_interference.cli review submit --candidate <CANDIDATE_ID> --reviewer <AUTHOR_ID>
-python -m rinex_interference.cli sync-status --config config/analysis.yaml
-python -m rinex_interference.cli verify-collab --config config/analysis.yaml
+# 1) 오케스트레이터: 계획 수립과 큐 생성
+python -m rinex_interference.cli plan --config config/analysis.yaml --scale r3 --shards 16
+python -m rinex_interference.cli queue status --config config/analysis.yaml
+python -m rinex_interference.cli barrier status
+python -m rinex_interference.cli barrier declare --name b2_baseline_frozen --evidence <MANIFEST_HASH>
+
+# 2) 워커: 역할을 지정해 큐에서 task를 가져간다(pull 모델)
+python -m rinex_interference.cli worker --role W_FEAT --workers 6 --config config/analysis.yaml
+python -m rinex_interference.cli worker --role W_DET --shard 3/16 --once
+
+# 3) 축약·승격·회수
+python -m rinex_interference.cli reduce --stage network_events --config config/analysis.yaml
+python -m rinex_interference.cli promote --run-id <RUN_ID> --stage features
+python -m rinex_interference.cli requeue --status failed --max-attempts 3
+python -m rinex_interference.cli queue poison-list
 ```
 
 모든 해당 명령은 `--dry-run`, `--log-level`, `--workers`, `--station`, `--start`, `--end`를 지원한다. `--force`는 명시적이어야 하며 원본에는 적용할 수 없다.
 
-모든 명령은 `--author <AUTHOR_ID>` 또는 환경변수 `RINEX_AUTHOR_ID`를 요구하고, 미등록 작성자는 config error로 종료한다. 공유 산출물을 쓰는 명령은 유효한 리스가 없으면 시작하지 않는다. `--lease-minutes`, `--approver`, `--force-release "<사유>"`를 지원하며 `--force-release`는 `coordination/LOCK_EVENTS.csv` 기록 없이 성공하지 않는다.
+병렬 실행 명령의 추가 규칙:
 
-`doctor`는 다음을 함께 점검한다. 작성자 등록 유효성, 잠금 원자성, 호스트 시계 오차, 공유 저장소 쓰기 권한, 개인 override 금지키 위반, 블라인드 방화벽 설정, 만료·고아 리스 목록. `verify-collab`은 청구 없이 생성된 산출물, 검토자와 생산자가 같은 판정, 승격되지 않은 채 보고서에 인용된 수치를 찾아 보고한다.
+- `worker`는 `--role`을 반드시 요구하고, 역할에 허용되지 않은 stage의 task는 lease하지 않는다.
+- `worker`는 `--workers`(프로세스 내 동시 실행 수)와 `--shard i/N`(외부에서 분할)을 함께 지원하되, 어느 조합에서도 결과가 같아야 한다.
+- 배리어가 닫혀 있으면 해당 stage의 task는 큐에서 leasable 상태가 되지 않는다. 워커가 배리어를 우회하는 옵션은 제공하지 않는다.
+- `doctor`는 큐 백엔드의 원자성, 큐 위치(로컬 디스크 여부), 호스트 시계 오차, 워커당 RAM 예산, 디스크 여유, 압축 해제 캐시 경합을 점검한다.
+- 종료코드는 정상 0, data/config/resource/internal error 외에 `queue_empty`, `barrier_blocked`, `lease_lost`를 구분한다.
 
 `--dry-run`은 input 수, 예상 작업, cache hit, 예상 output 공간을 표시하고 분석산출물은 쓰지 않는다. 정상 종료 0과 data/config/resource/internal error 종료코드를 구분한다.
 
@@ -2343,11 +2343,9 @@ official_event_ids
 data_quality_status
 review_status
 evidence_bundle_path
-produced_by_author_id
-reviewed_by_author_id
-adjudicated_by_author_id
-review_agreement_status
-blind_integrity
+produced_by_worker_id
+reviewed_by
+boundary_merged            # 일자·시간블록 경계에서 재병합된 사건인지
 ```
 
 수동 검토표:
@@ -2366,15 +2364,9 @@ hard_refutation
 soft_explanation
 uncertainty
 notes
-reviewer_role
-independent_of_producer
-second_reviewer_id
-adjudicator_id
-adjudication_result
-agreement_batch_id
 ```
 
-검토자가 official event를 보았는지 반드시 기록한다. 검토자는 원칙적으로 후보 생산자와 달라야 한다(39.8절). 최소 `min_double_reviewed_fraction` 이상의 후보를 두 명 이상이 서로의 판정을 보지 않고 독립 판정하고, 분류 라벨과 증거등급 각각의 일치도(Cohen's κ 또는 등급자료에 적합한 지표)를 표본 수·범주 분포·신뢰구간과 함께 `reports/15`와 `coordination/REVIEW_LOG.csv`에 보고한다. 불일치는 평균내지 말고 조정하며 조정 전·후 판정을 모두 보존한다. 일치도 값 자체를 품질 주장으로 과장하지 마라.
+검토자가 official event를 보았는지 반드시 기록한다.
 
 # 31. 시각화 추가 계약
 
@@ -2440,9 +2432,9 @@ config_hash
 code_hash
 verified_at
 review_notes
-author_id
-verified_by_author_id
-blind_status
+run_id
+worker_id
+shard_count
 supersedes_claim_id
 superseded_by_claim_id
 ```
@@ -2468,7 +2460,7 @@ superseded
 unverified
 ```
 
-파일 수, station 수, 기간, 결측률, candidate 수, 처리량도 claim이다. 보고서의 핵심 숫자는 claim ID에서 source table 또는 계산 query로 역추적돼야 한다. 재실행 결과가 달라지면 이전 claim을 삭제하지 말고 supersede한다. 다른 작성자의 claim을 직접 수정하지 말고 새 claim으로 supersede하며, 두 claim의 작성자·근거·수치 차이를 `review_notes`에 남긴다. 보고서·논문에는 승격된 산출물에 연결된 claim만 인용한다.
+파일 수, station 수, 기간, 결측률, candidate 수, 처리량도 claim이다. 보고서의 핵심 숫자는 claim ID에서 source table 또는 계산 query로 역추적돼야 한다. 재실행 결과가 달라지면 이전 claim을 삭제하지 말고 supersede한다.
 
 ## 32.2 `docs/THRESHOLD_TRACEABILITY.md`
 
@@ -2581,10 +2573,9 @@ limitations
 - BDS B1I≠B1C/L1 주파수 차이와 대역 별칭 오류 위험
 - 행위자·국가·기관 귀속(attribution) 불가와 공식 발표 인용의 한정 표기
 - affected footprint ≠ source ≠ actor
-- 다중 분석자 환경의 분석자 자유도(researcher degrees of freedom)와 작성자별 판단 편차
-- 검토자 간 판정 불일치, 일치도 지표(κ)의 범주 불균형·표본 한계
-- 작성자별 실행환경(호스트·OS·라이브러리 빌드) 차이에 의한 수치 미세편차 가능성과 그 검증 범위
-- 1인 작업 또는 인원 부족 시 시간 분리 블라인드·`deferred_review`가 인적 분리보다 약한 통제라는 점
+- 분산 집계에서 median·MAD·분위수를 스케치로 근사했을 때의 오차와 그 검증 범위
+- 일자·시간블록 경계에서 잘린 사건의 재병합 규칙이 지속시간·사건 수 통계에 주는 영향
+- 워커 수·샤드 수·실행환경 차이에 의한 수치 미세편차 가능성과 불변성 시험으로 확인한 범위
 
 ## `docs/EVALUATION_PROTOCOL.md`
 
@@ -2609,36 +2600,11 @@ limitations
 
 ## `docs/DEPENDENCY_GRAPH.md`
 
-raw observation→feature→score→event→claim의 의존관계를 기록한다.
+raw observation→feature→score→event→claim의 의존관계를 기록한다. 각 노드에 병렬 단위(shard key), 배리어, 축약(reduce) 지점을 함께 표기한다.
 
-## `docs/AUTHOR_REGISTRY.csv`
+## `docs/PARALLEL_EXECUTION_PLAN.md`
 
-```text
-author_id
-display_name
-author_kind            # human | agent
-agent_tool_and_version
-operated_by            # agent의 실행 책임자
-roles
-affiliation
-orcid_or_contact
-blind_status
-active_from_utc
-active_to_utc
-write_scopes
-review_scopes
-notes
-```
-
-`config/authors.yaml`이 원본이고 이 파일은 사람이 읽는 내보내기다. 실행 권한과 40절의 저자권은 별개로 관리한다.
-
-## `docs/COLLABORATION_PROTOCOL.md`
-
-39절을 이 프로젝트의 실제 인원·저장소·경로에 맞게 구체화한다. 청구 단위, 리스 길이, 검토 배정 규칙, 승격 승인자, 충돌 조정 순서, 연락·인수인계 방법, 부재 시 소유권 이양 절차를 적는다.
-
-## `docs/CONTRACT_OWNERS.csv`
-
-이 계약 문서의 절별 소유자·검토자를 기록한다(41.1절).
+39~41절을 이 프로젝트의 실제 자원·경로에 맞게 구체화한다. 단계별 shard key와 예상 task 수, 역할별 워커 수, 배리어 순서, 경계 패딩 값, 축약 지점, 실측 처리량과 병목, 재개 절차를 적는다. 워커 수를 바꿀 때 이 문서를 갱신한다.
 
 # 34. Phase별 승인표
 
@@ -2659,7 +2625,7 @@ notes
 | P12 | evaluation | CI·분모·leakage audit | 성능주장 금지 |
 | R5 | full scale | manifest reconciliation | 실패 partition과 재개 보고 |
 
-각 게이트 행에 `implementer_author_id`, `approver_author_id`, `approved_at_utc`, `evidence_links`를 함께 기록한다. **구현자와 승인자는 서로 다른 작성자여야 한다.** 인원 부족으로 불가능하면 `deferred_review`로 표기하고 해당 Phase 결과의 증거등급 상한과 보고 표현을 낮춘다. 승인 없이 다음 대규모 단계로 진입하지 마라. 게이트 실패를 승인으로 덮지 말고 실패 항목과 조치를 그대로 남긴다.
+각 게이트에 `declared_by`(orchestrator), `evidence_links`, `barrier_state`, `worker_summary`(역할별 task 수·실패·poison)를 기록한다. 게이트 판정과 배리어 선언은 orchestrator 역할만 수행하고, 자신이 생산한 후보의 최종 판정은 생산 워커를 운영한 주체가 단독으로 하지 않는다. 불가피하면 `deferred_review`로 표기하고 증거등급 상한을 낮춘다.
 
 # 35. 1초 RINEX·차량 NMEA 선택적 후속검증
 
@@ -2789,20 +2755,18 @@ limitations
 - [ ] 실측 GB/h, peak RSS, output ratio가 있다.
 - [ ] full completion 또는 정확한 blocked/resume 상태다.
 
-## 협업·작성자
+## 병렬 실행
 
-- [ ] 모든 작성자가 `config/authors.yaml`과 `docs/AUTHOR_REGISTRY.csv`에 등록되었다.
-- [ ] 모든 산출물·manifest·claim·로그에 `author_id`가 있다.
-- [ ] 공유 산출물 쓰기가 유효 리스 안에서만 이루어졌고 강제해제 이력이 남았다.
-- [ ] 작성자별 `runs/` 산출물이 게이트·검토·해시 검증 후에만 승격되었다.
-- [ ] 공유 원장에서 타인 행을 수정·삭제하지 않았다(supersede만 사용).
-- [ ] 개인 override가 허용키 범위를 넘지 않았고 `effective_config_hash`가 기록되었다.
-- [ ] 블라인드 방화벽을 준수했고 위반 시 `blind_integrity` 상태와 조치가 기록되었다.
-- [ ] 후보 최종 판정·게이트 승인에서 생산자와 검토자가 분리되었거나 `deferred_review`가 명시되었다.
-- [ ] 이중검토 수행률과 검토자 간 일치도를 표본 수와 함께 보고했다.
-- [ ] 교차 작성자 재현 시험(28.10절)이 통과했다.
-- [ ] 미해제 잠금·고아 리스·승격 대기 산출물이 정리되었거나 인수인계에 기록되었다.
-- [ ] 공동저자 기여표·저자 순서 근거·AI 도구 공개·최종 원고 승인 기록이 있다(40절).
+- [ ] 단계별 shard key·병렬도·의존성·배리어가 `docs/PARALLEL_EXECUTION_PLAN.md`에 있다.
+- [ ] 배리어 B1·B2·B3가 orchestrator 선언으로만 통과되었다.
+- [ ] shard 수 1/4/16과 worker 수 1/N의 결과가 동일했다(불변성 시험).
+- [ ] 경계 패딩과 재병합 reduce가 적용되었고 경계 사건 시험이 통과했다.
+- [ ] median·MAD·분위수의 분산 집계 방식과 근사 오차를 보고했다.
+- [ ] 모든 partition에 `worker_id`·`task_id`·`shard_index`가 기록되었다.
+- [ ] 리스 없는 쓰기, 타 워커 파티션 덮어쓰기가 없었다.
+- [ ] 실패 task 재시도·poison 격리 목록과 그 영향 범위를 보고했다.
+- [ ] `W_VAL`이 별도 프로세스·별도 경로로 격리 실행되었다.
+- [ ] 워커 수별 실측 처리량·peak RSS·디스크 사용과 병목을 기록했다.
 
 ## Report
 
@@ -2839,12 +2803,12 @@ limitations
 19. 실패·미완료·untestable 항목
 20. 30초 자료의 과학적 제한
 21. Publication Viability Gate 판정과 논문별 viable/conditional/merge/not-supported 상태, 작성된 근거 패키지
-22. 참여 작성자·역할·활동기간과 각자가 생산·검토한 주요 산출물
-23. 작업 청구·리스 상태, 미해제 잠금, 강제해제 이력, 승격 대기 산출물
-24. 이중검토 수행률, 검토자 간 일치도(표본 수 포함), 불일치 조정 결과
-25. 블라인드 방화벽 준수 여부와 위반·조치 이력
-26. 공동저자 기여표·AI 도구 공개 상태(해당 시)
-27. 다음 정확한 resume 또는 1초/RF 후속검증 명령과 다음 담당 작성자
+22. 병렬 실행 구성: 역할별 워커 수, shard 수, 총 task 수와 완료·실패·poison 수
+23. 배리어 B1/B2/B3 통과 시각과 근거, 경계 재병합 사건 수
+24. 워커 수별 실측 처리량·스케일 효율·병목 단계와 자원 상한
+25. shard/worker 불변성 시험 결과와 분산 집계 근사 오차
+26. 다음 정확한 resume 명령(큐 상태 기준)과 남은 task 범위
+27. 1초/RF 후속검증 명령
 
 각 숫자는 전수·표본·추정 중 무엇인지 표시하고 claim ID 또는 산출물에 연결한다.
 
@@ -2902,8 +2866,6 @@ Paper C — 외부검증·사례 논문
 - `manuscripts/paper_{A,B,C}/claims_map.csv`: 논문 주장 ↔ `docs/CLAIM_REGISTRY.csv`의 claim ID ↔ 산출물 경로 ↔ 증거등급. **claim registry에 없는 주장을 논문 개요에 쓰지 마라.**
 - `manuscripts/paper_{A,B,C}/contributions.md`: 기여 3~5개, 각 기여가 기존 연구 대비 무엇이 다른지, 그리고 어떤 결과가 그 기여를 지지하는지
 - `manuscripts/paper_{A,B,C}/limitations_section_draft.md`: `SCIENTIFIC_LIMITATIONS.md`에서 해당 논문 범위의 제한을 발췌·서술
-- `manuscripts/paper_{A,B,C}/author_contributions.csv`: 저자별 CRediT 기여, 근거 claim ID·산출물, 책임 절, 최종 원고 승인 여부(40절)
-- `manuscripts/AUTHORSHIP.md`: 저자 자격 기준, 저자 순서 규칙과 근거, 교신저자, AI·자동화 도구 사용 공개, 이해상충·연구비, 감사의 글 대상(40절)
 - `manuscripts/CROSS_PAPER_OVERLAP_MATRIX.md`: 데이터 기간·station·feature·figure/table·primary endpoint·claim ID 중복과 차별성, 공유 방법 인용계획
 - `manuscripts/PUBLICATION_VIABILITY.md`: 논문별 `viable | conditionally_viable | merge_recommended | not_supported` 판정과 근거
 - 데이터·코드 가용성 문안(reports/14 재사용)과 재현 명령
@@ -2949,268 +2911,292 @@ Paper C — 외부검증·사례 논문
 - [ ] 확인되지 않은 문헌 인용이 없다.
 - [ ] dissertation chapter_map과 defensible_claims가 존재한다.
 - [ ] 실제 결과가 시작 가설의 논문 구성을 지지하지 않는 경우 병합·보류·미지원 이유가 기록되었다.
-- [ ] 논문별 CRediT 기여표와 저자 순서 근거가 있고 모든 저자가 최종본을 승인했다(40절).
-- [ ] AI·자동화 도구 사용을 대상 저널 정책에 맞게 공개했고 에이전트를 저자로 올리지 않았다.
-- [ ] 각 저자가 책임지는 절과 데이터·코드 가용성 담당자가 지정되었다.
-- [ ] 기여 분쟁이 있으면 `unresolved`로 표기하고 제출을 보류했다.
 
 이 게이트는 학술 출판 준비 게이트이며 R5 데이터 파이프라인 완료를 막지 않는다. `not_supported`는 연구 실패가 아니라 증거 수준에 맞춘 정상적 결과다.
 
-# 39. 다중 작성자 협업 계약
+# 39. 다중 워커 병렬 실행 계약
 
-이 절은 여러 명의 작성자(사람 연구자와 코딩 에이전트)가 같은 결과 폴더·저장소를 공유할 때의 실행 규칙이다. 앞 절과 충돌하면 더 엄격한 조항을 따른다.
+이 절은 앞의 모든 단계를 **역할이 다른 여러 프로세스가 나누어 동시에 수행**하기 위한 규칙이다. 앞 절과 충돌하면 더 엄격한 조항을 따른다. 병렬화의 목표는 속도이며, 결과는 직렬 실행과 같아야 한다.
 
-## 39.1 작성자 등록과 식별
+## 39.1 병렬화의 3가지 축
 
-`config/authors.yaml`을 단일 원본으로 두고 `docs/AUTHOR_REGISTRY.csv`로 내보낸다.
+1. **데이터 병렬(같은 일을 다른 자료에)**: station×day 파티션처럼 서로 독립인 단위를 나눈다. 이 프로젝트 처리량의 대부분이 여기서 나온다.
+2. **역할 병렬(다른 일을 동시에)**: 특징 추출이 도는 동안 다른 워커가 외부 참조자료를 받거나 그림·문서를 만든다. 의존성이 없는 단계에만 적용한다.
+3. **구현 병렬(코드 작성 분담)**: 모듈 경계로 나누어 서로 다른 작성자·에이전트가 동시에 구현한다. 40.2절 규칙을 따른다.
 
-```yaml
-authors:
-  - author_id: kim_sh                    # 실제 값으로 대체한다
-    display_name: '<표시명>'
-    author_kind: human
-    roles: [lead_integrator, detection_owner]
-    blind_status: blinded
-    write_scopes: ['candidates/**', 'features/**']
-    review_scopes: ['baselines/**']
-    active_from_utc: '<UTC>'
-  - author_id: agent_a1
-    author_kind: agent
-    agent_tool_and_version: '<도구·모델·버전>'
-    operated_by: kim_sh                  # 에이전트 실행 책임자
-    roles: [data_engineer]
-    blind_status: blinded
-    write_scopes: ['inventory/**', 'data_quality/**']
-```
+세 축을 섞어 쓰되, 의존성과 배리어를 어긴 병렬화는 금지한다.
 
-- `author_id`는 소문자·숫자·밑줄만 쓰고 한 번 정하면 바꾸지 않는다. 바꿔야 하면 새 ID를 만들고 이전 ID를 `superseded_by`로 연결한다.
-- 에이전트도 작성자로 등록하되 **실행 책임자(`operated_by`)를 반드시 지정한다.** 에이전트는 실행 주체일 수 있으나 40절의 저자는 될 수 없다.
-- 모든 산출물 행·manifest·claim·로그에 `author_id`, `run_id`, `host_id`를 남긴다. 사람이 읽는 보고서에는 표시명을 써도 되지만 기계 산출물의 키는 `author_id`다.
-- 미등록 작성자의 공유 산출물 쓰기는 실행 오류로 처리한다.
+## 39.2 단계별 작업 단위와 병렬도
 
-## 39.2 작업 청구와 소유권 단위
+아래 표를 `docs/PARALLEL_EXECUTION_PLAN.md`의 시작값으로 쓰고 실측 후 갱신한다. `shard key`는 task를 만드는 단위이며 출력 파티션 키와 일치해야 한다.
 
-공유 산출물에 쓰기 전에 청구한다. 청구 단위는 산출물 경계와 일치해야 한다.
+| 단계 | shard key(작업 단위) | 담당 역할 | 병렬도 | 선행 조건 | 결합(reduce) |
+|---|---|---|---|---|---|
+| 0 환경·자산 감사 | 없음 | orchestrator | 1 | — | — |
+| 1 헤더 인벤토리 | `file_id` 묶음 | W_INV | 높음(IO 한계) | P0 | 조각 concat → 정렬·중복·해시 검사 |
+| 2 품질 게이트 | `station×day` | W_QC | 높음 | P1 전량(B1) | station-day 파티션 concat |
+| 3 항법·외부 참조자료 | `날짜` 또는 `product` | W_EXT | 낮음(2~4, single-flight) | P1 | `cache/external` 공유·해시 검증 |
+| 3.1 GLONASS 채널 스냅샷 | 스냅샷 1건 | W_EXT | 1 | P3 | — |
+| 4 특징 추출 | `station×day`(+halo) | W_FEAT | 최고(CPU 바운드) | B1, P3 | 파티션 독립 저장 |
+| 4.5 ROTI·대역차분 | `station×day×arc` | W_FEAT | 최고 | 4와 동일 task 내 | — |
+| 5 기준선 | `baseline group_key` | W_BASE | 중간 | **학습구간 특징 전량(배리어)** | 39.8절 분산 집계 |
+| 6 이상탐지 | `station×day` | W_DET | 최고 | **B2 기준선 동결** | 후보 window concat |
+| 7 망 동조성·공간통계 | `시간블록(day 또는 6h)×전 관측소` | W_NET | 중간 | 해당 시간블록의 P6 전량 | 경계 패딩 후 사건 재병합(단일 reduce) |
+| 8 공식 사건 외부검증 | `event_id` | W_VAL | 낮음 | **B3 blind freeze** | 별도 경로, 블라인드 산출물과 미혼합 |
+| 9 반증·분류 | `candidate_id` | W_FALS | 높음 | P7 | 후보 카탈로그 concat |
+| 시각화 | `candidate_id` 또는 그림 종류 | W_FIG | 높음 | P9 | — |
+| 보고서·claim 확정 | 없음 | W_REP | 1 | 전 단계 | 단일 writer |
+
+병렬화하면 결과가 달라지는 작업은 **반드시 단일 워커**로 둔다.
+
+- 기준선 파라미터·임계값 확정, blind freeze
+- StationEvent→NetworkEvent 병합 규칙과 clustering의 최종 실행
+- 공간 가중행렬 선택과 다중검정 보정 범위 결정
+- claim registry 최종 상태와 보고서 수치 확정
+
+## 39.3 하드 배리어
+
+배리어는 orchestrator만 선언하고 `queue/barriers.json`에 근거 해시와 시각을 남긴다. 워커는 배리어를 우회하는 수단을 갖지 않는다.
+
+- **B1 — 인벤토리·품질 완료**: 전수 인벤토리와 품질등급이 끝나기 전에 특징 추출을 파일럿 범위 밖으로 확대하지 않는다. 분석 대상 파일 집합이 확정되지 않은 상태의 대규모 실행은 재작업을 부른다.
+- **B2 — 기준선 동결**: 기준선 파라미터가 확정·해시되기 전에 탐지 task를 leasable 상태로 만들지 않는다. 워커마다 다른 기준선을 쓰면 후보가 워커 수에 의존하게 된다.
+- **B3 — blind freeze**: 블라인드 후보와 설정·코드 해시가 동결되기 전에 공식 사건자료를 큐·캐시·특징에 들이지 않는다. `W_VAL` task는 B3 이후에만 생성한다.
+
+배리어 통과 조건은 산출물 존재가 아니라 15.2절 게이트 통과다. 배리어를 앞당기려면 계약을 고치고 근거를 남겨야 하며, 실행 중 임의 완화는 금지한다.
+
+## 39.4 작업 큐와 워커 계약
+
+pull 모델을 쓴다. orchestrator가 task를 만들고, 워커가 자기 역할의 leasable task를 가져간다. push 방식으로 워커에 미리 할당하지 마라(불균등·재할당 문제).
 
 ```text
-claim_id
-scope_type            # phase | partition | station_year | module_path | document | review
-scope_key             # 예: P6 / features/year=2023/station=XXXX / src/.../baseline.py / reports/10
-author_id
-run_id
-status                # claimed | in_progress | in_review | done | released | expired
-claimed_at_utc
-heartbeat_at_utc
+task_id                # 결정적: hash(stage, shard_key, config_hash, code_hash, schema_version)
+stage
+role_required
+shard_key
+shard_index / shard_count
+depends_on_task_ids
+barrier_required
+status                 # pending | leasable | leased | running | done | failed | poison
+lease_owner_worker_id
 lease_expiry_utc
-depends_on_claim_ids
-exact_resume_command
+heartbeat_at_utc
+attempts
+error_class
+input_refs
 output_paths
-notes
+runtime_seconds
+peak_rss_mb
 ```
 
-- 하나의 `scope_key`에는 동시에 한 명의 writer만 존재한다. 읽기는 제한하지 않는다.
-- 청구 없이 만든 산출물은 신뢰하지 않는다. 발견되면 격리하고 재실행하거나 검증 후 승인 절차를 거친다.
-- 청구는 잘게 나눈다. `전체 파이프라인` 같은 광역 청구는 `lead_integrator`의 명시적 동의와 기간 제한이 있을 때만 허용한다.
-- 여러 범위가 필요한 작업은 `scope_key` 사전순으로 한 번에 청구하거나 포기한다(교착 방지).
+- 상태 전이는 원자적이어야 한다. SQLite(WAL) 또는 디렉터리 큐의 원자적 `rename`을 사용하고, **큐는 네트워크 공유가 아닌 로컬 디스크**에 둔다. 원자성을 보장할 수 없으면 `doctor`가 병렬 실행을 차단한다.
+- `task_id`는 내용 기반이므로 재실행 시 같은 task는 같은 ID를 갖는다. 이미 `done`이고 출력 해시가 유효하면 다시 실행하지 않는다.
+- 워커는 lease 중 `heartbeat_seconds`마다 갱신한다. 만료 후 `stale_lease_grace_seconds`가 지나면 orchestrator가 회수·재할당한다.
+- 워커는 자기 task의 `output_paths`에만 쓴다. 완성 전에는 `runs/<run_id>__<worker_id>/`의 `.tmp`에 쓰고 완료 시 원자적으로 이동한다.
 
-## 39.3 리스와 heartbeat
+## 39.5 역할 정의
 
-- 청구는 `lease_minutes_default` 동안만 유효하고 `lease_heartbeat_minutes`마다 갱신한다. R4·R5처럼 긴 실행은 예상 소요시간에 맞춘 리스를 요청하고 진행 중 heartbeat를 남긴다.
-- 잠금 파일은 `locks/<scope_hash>.lock`에 원자적 생성(O_EXCL 또는 동등)으로 만든다. 내용은 `author_id, run_id, host, pid, claimed_at_utc, heartbeat_at_utc, lease_expiry_utc`다.
-- 공유 드라이브가 원자적 생성·잠금을 보장하지 못하면 `doctor`가 실행을 차단한다. 이때는 단일 writer 호스트를 지정하거나 작성자별 `runs/` 샌드박스에서만 작업하고 승격으로 병합한다.
-- 모든 시각은 UTC로 기록한다. 호스트 간 시계 오차가 `max_clock_skew_seconds`를 넘으면 리스 판단을 신뢰하지 않는다.
+| 역할 | 책임 | 쓰기 범위 | blind |
+|---|---|---|---|
+| `orchestrator` | 계획·큐 생성, 배리어 선언, 게이트 판정, 승격, 자원 조정 | `queue/`, `manifests/`, 진행파일 | blinded |
+| `W_INV` | 파일 열거·헤더 인벤토리·압축 판별·해시 | `inventory/` | blinded |
+| `W_QC` | 품질지표·등급·metadata regime | `data_quality/`, `metadata/` | blinded |
+| `W_EXT` | BRDC/SP3/CLK·IONEX·Kp/Dst·GLONASS 채널 취득 | `cache/external/` | blinded |
+| `W_FEAT` | 특징·ROTI·대역차분 추출 | `features/` | blinded |
+| `W_BASE` | 기준선 학습·동결 | `baselines/` | blinded |
+| `W_DET` | 다중 검출기 이상탐지·StationEvent | `candidates/station_*` | blinded |
+| `W_NET` | 망 동조성·공간통계·NetworkEvent | `candidates/network_*`, `candidates/spatial_*` | blinded |
+| `W_FALS` | 반증 엔진·분류·증거등급 | `candidates/`, `docs/FALSIFICATION_LOG.md` | blinded |
+| `W_VAL` | 공식 사건 정규화·replay·외부검증 | `validation_unblinded/` | **unblinded** |
+| `W_FIG` | 그림 생성 | `figures/` | blinded(공식 overlay는 W_VAL 산출물에서만) |
+| `W_REP` | 보고서·claim 확정 | `reports/`, `docs/CLAIM_REGISTRY.csv` | 단계별 분리 |
 
-## 39.4 잠금 충돌·만료·강제해제
+- 동시에 도는 프로세스는 하나의 역할만 맡는다. 한 사람·에이전트가 여러 역할을 순차 수행하는 것은 허용한다.
+- 역할별 동시 인스턴스 수는 `role_worker_limits`로 제한하고 실측 후 조정한다.
+- `W_REP`는 항상 1개다. 보고서·claim 확정을 병렬로 하지 마라.
 
-- 충돌 시 기본 행동은 대기 또는 다른 범위로 이동이다. 살아 있는 리스를 깨지 마라.
-- 만료된 리스는 `stale_lease_grace_minutes` 경과 후 회수할 수 있다. 회수 시 부분 산출물(`.tmp`)을 삭제하지 말고 격리한다.
-- 강제해제는 (a) 사유 문자열, (b) 소유자 통지 기록, (c) `coordination/LOCK_EVENTS.csv` 기록이 모두 있을 때만 허용한다.
-- 같은 범위에서 강제해제가 반복되면 범위 분할이나 배정이 잘못된 것이다. 규칙을 고치고 `DECISIONS.md`에 남긴다.
+## 39.6 샤딩과 결정성
 
-## 39.5 개인 실행 샌드박스와 승격
+- shard 배정: `shard_index = int(sha256(shard_key_canonical), 16) % shard_count`. 파일 열거 순서·디렉터리 순회 순서에 의존하지 마라.
+- `shard_key`는 정규화된 문자열(예: `station=XXXX|date=2023-05-14`)로 만들고 대소문자·구분자를 고정한다.
+- shard 수를 바꾸면 task 분할은 달라지지만 **출력 파티션과 내용은 같아야 한다.** 출력 경로에 shard_index를 넣지 마라.
+- 난수는 설정 seed에서 파생하되 `seed_for_task = hash(base_seed, task_id)`처럼 task별 결정적으로 만든다. 워커 지역 시각·PID를 seed에 넣지 마라.
+- 축약은 정렬된 순서로 수행하고, 부동소수 합산은 결합 순서에 무관한 방식과 tolerance를 명시한다.
 
-- 모든 생성은 `runs/<run_id>__<author_id>/` 아래에서 시작한다.
-- 공식 경로(`shared/` 또는 최상위 산출물 경로)로의 이동은 승격이며 다음을 모두 만족해야 한다. 해당 Phase 게이트 통과, 검토자 서명, 출력 해시와 manifest 일치, 스키마·config 해시 일치.
-- 승격은 `promotion_approver_roles`(기본 `lead_integrator`)만 수행하고 `manifests/promotions.csv`에 `run_id, author_id, approver_id, gate_result, hashes, promoted_at_utc`를 남긴다.
-- 승격되지 않은 결과를 보고서·논문 수치로 인용하지 마라. 필요하면 `pending_promotion`으로 명시한다.
-- 승격 후에도 원 실행 산출물은 보존 정책에 따라 유지하고 임의로 지우지 않는다.
+## 39.7 경계(halo) 처리
 
-## 39.6 공유 원장 병합 규칙
+일자·시간블록으로 자르면 경계에 걸친 현상이 잘린다. 다음을 강제한다.
 
-`DECISIONS.md`, `SURPRISES.md`, `RUN_LOG.md`, `docs/CLAIM_REGISTRY.csv`, `docs/FALSIFICATION_LOG.md`, `coordination/*`는 여러 작성자가 동시에 쓰는 파일이다.
+- **창 특징**: 각 파티션은 앞뒤로 `window_feature_padding_seconds`(창 최대 길이 이상)만큼 읽어 계산하고, **쓰기는 자기 구간만** 한다. 읽기 패딩과 쓰기 구간을 혼동하지 마라.
+- **ROTI·arc**: 자정 경계를 걸치는 연속 arc는 `roti_arc_padding_seconds`만큼 앞뒤를 포함해 arc 연속성·LLI·coverage 게이트를 판정한다. 경계에서 arc를 강제로 끊어 유효 ROTI를 잃지 마라.
+- **StationEvent**: 파티션 경계에 닿은 사건은 `boundary_open=true`로 표시하고, 이웃 파티션 완료 후 단일 reduce에서 병합한다. 병합 결과에 `boundary_merged=true`를 남긴다.
+- **NetworkEvent**: 시간블록 병렬 시 블록 경계 ±`network_block_padding_seconds`를 포함해 clustering하고, reduce에서 중복 사건을 안정 ID 기준으로 제거한다.
+- 경계 처리 여부는 사건 수·지속시간 통계를 바꾸므로 41.3절 경계 시험으로 직렬 실행과 대조한다.
 
-- append-only로 다룬다. 타인의 행을 수정·삭제하지 말고 새 행과 `superseded_by`로 갱신한다.
-- 각 행은 `record_id`(작성자·시각·내용 해시 기반), `author_id`, `recorded_at_utc`를 포함한다.
-- 버전관리를 사용하면 이 파일들의 병합 충돌은 거의 없어야 한다. 충돌이 반복되면 파일을 작성자·날짜별 조각으로 나누고 조회 시 합친다.
-- 대용량 이진 산출물(Parquet 등)은 텍스트 병합 대상이 아니다. 파티션 키를 작성자와 무관하게 정의하고 파티션 단위로 교체한다.
-- 같은 사실에 대해 서로 다른 기록이 남으면 지우지 말고 `lead_integrator`가 조정 결과를 새 행으로 남긴다.
+## 39.8 분산 집계 규칙
 
-## 39.7 블라인드 방화벽 운용
+기준선(단계 5)과 요약 통계는 파티션별 부분결과를 결합해야 한다.
 
-22.6절을 따른다. 협업 관점의 추가 규칙은 다음과 같다.
+- **그대로 합산 가능**: count, sum, sum of squares, min, max, 고정 bin 히스토그램, 결측 수
+- **직접 결합 불가**: median, MAD, 분위수, robust scale. 다음 중 하나만 쓴다.
+  1. **2-pass**: 1차로 고정 bin 히스토그램 또는 후보 분위수를 만들고, 2차로 정확값을 확정한다(정확·느림).
+  2. **스케치**: t-digest·KLL 등 병합 가능한 자료구조를 파티션별로 만들고 결합한다(빠름·근사). 이 경우 대표 그룹에서 정확값과의 오차를 측정해 보고한다.
+- 어떤 방식을 쓰든 `baseline_median`, `baseline_MAD`, `empirical_scale_floor`의 산출 방식과 근사 오차를 `docs/METHODOLOGY.md`와 `reports/16`에 남긴다.
+- 그룹 표본이 `min_epochs_per_cell` 미만이면 19절 계층 fallback을 적용하고 fallback 수준을 열로 남긴다. 병렬화 때문에 부분 표본으로 기준선을 만들지 마라.
+- 기준선 학습은 배리어 뒤에서 한 번만 수행하고 결과를 해시·동결한다. 탐지 워커는 동결된 기준선만 읽는다.
 
-- 채팅·이슈·커밋 메시지에도 공식 사건 시각·지역을 쓰지 않는다. 필요하면 `official_event_id`만 참조하고 상세는 unblinded 영역에 둔다.
-- 블라인드 동결 전에는 unblinded 작성자의 검토 의견을 블라인드 산출물에 반영하지 않는다.
-- 작성자의 `blind_status`가 바뀌면(예: 공식 자료 열람) 그 시각 이후의 쓰기 권한이 즉시 달라진다. 변경 시각을 기록한다.
+## 39.9 자원 예산과 backpressure
 
-## 39.8 이중검토와 판정 조정
+- 총 병렬도 = `min(CPU-2, 가용 RAM / 워커당 peak RSS, 저장장치 IO 한계)`. 실측 전에는 보수적으로 시작해 단계별로 올린다.
+- 단계 특성이 다르다. 인벤토리·압축 해제는 IO 바운드이므로 워커를 늘려도 디스크 큐가 병목이다. 특징·탐지·공간통계는 CPU 바운드다. 그림 생성은 메모리·폰트 자원을 쓴다. IO 바운드 단계와 CPU 바운드 단계를 겹쳐 돌리면 전체 효율이 올라간다.
+- 원시자료가 네트워크·외장 드라이브에 있으면 동시 읽기 수를 별도로 제한하고, 압축 해제 캐시는 로컬 디스크에 둔다.
+- 같은 압축 파일을 여러 워커가 동시에 해제하지 않도록 캐시 항목마다 single-flight 잠금을 둔다. 해제본 재사용 정책과 정리 기준을 기록한다.
+- 외부 저장소(IGS/CDDIS 등) 다운로드는 `W_EXT` 소수 워커로 제한하고 서버 정책을 존중한다. 병렬 다운로드로 부하를 주지 마라.
+- 출력 디스크 여유가 `min_free_disk_gb_to_lease` 아래로 내려가면 신규 lease를 중단하고 26.3절 descope 순서를 적용한다.
 
-- 후보 최종 판정(분류·증거등급)과 Phase 게이트 승인은 생산자가 아닌 작성자가 수행한다.
-- 최소 `min_double_reviewed_fraction`의 후보는 두 명 이상이 서로의 판정을 보지 않고 독립 판정한다. 표본 선정 규칙(고정 seed 무작위 또는 층화)을 기록한다.
-- 일치도는 분류 라벨과 증거등급 각각에 대해 계산하고 n·범주 분포·신뢰구간과 함께 보고한다. 범주가 극단적으로 불균형하면 지표의 한계를 함께 적는다.
-- 불일치는 평균내지 말고 조정회의 또는 제3 검토자(`adjudicator`)로 해결하며 조정 전·후 판정을 모두 보존한다.
-- 검토자는 자신이 본 자료(블라인드 여부, official event 열람 여부)를 기록한다.
-- 독립 검토가 불가능하면 `deferred_review`로 표기하고 해당 후보의 증거등급 상한을 낮추며 보고서에 그 사실을 쓴다.
+## 39.10 실패 격리와 재시도
 
-## 39.9 설정 거버넌스와 개인 override
+- task 단위로 재시도한다. `backoff_seconds`로 간격을 두고 `max_attempts` 초과 시 `poison`으로 격리한다.
+- poison task는 전체 실행을 멈추지 않는다. 다만 격리 목록과 사유를 `queue/poison/`과 보고서에 남기고, 인벤토리 파일 수 reconciliation에 반영한다.
+- retryable(일시적 IO·잠금 경합)과 non-retryable(파일 손상·스키마 위반)을 구분한다. 후자는 즉시 격리한다.
+- 워커가 죽으면 리스 만료 후 재할당하고 부분 산출물은 격리한다. 같은 task가 반복 실패하면 워커 수를 줄여 재현한 뒤 원인을 찾는다.
+- 한 shard가 계속 실패해 결과가 비어 있는데도 전체를 `완료`로 보고하지 마라.
 
-- 과학적 임계값·기준선·평가·공간통계·우주기상·공식검증 설정은 공유 `analysis.yaml`에만 존재한다. 개인 override로 바꾸지 마라.
-- 개인 override는 `config/overrides/<author_id>.yaml`에 두고 `collaboration.config_override.allowed_keys` 범위(경로·worker 수·배치 크기·로깅·런타임)만 허용한다. 금지 키가 있으면 실행을 거부한다.
-- 실행은 병합된 유효 설정의 `effective_config_hash`와 override diff를 산출물에 기록한다.
-- 공유 설정 변경은 제안자·근거·영향범위·이전과 새 해시·승인자를 `DECISIONS.md`에 남기고, 영향을 받는 산출물의 재실행 범위를 함께 적는다.
-- R5 진입 전 스키마·설정 동결 이후의 변경은 `lead_integrator` 승인과 전체 영향 평가 없이 금지한다.
+## 39.11 단일 writer와 승격
 
-## 39.10 병렬화가 안전한 축과 위험한 축
+- 하나의 출력 파티션에는 하나의 writer만 있다. 리스 없이 공유 경로에 쓰지 않는다.
+- 워커는 `runs/<run_id>__<worker_id>/`에 만들고, 스키마·행수·해시 검증 후 공식 경로로 원자적 이동한다. 승격 기록은 `manifests/promotions.csv`에 남긴다.
+- 승격되지 않은 부분 산출물을 보고서·표·그림의 수치로 쓰지 마라. 필요하면 `pending`으로 명시한다.
+- 여러 워커가 만든 결과를 하나의 표로 합칠 때는 config·code·schema 해시가 모두 같은지 먼저 확인한다. 다르면 합치지 말고 재실행 범위를 정한다.
 
-안전하게 분할 가능:
+## 39.12 병렬 실행 금지사항
 
-- 인벤토리·파싱·품질·특징 추출의 `station × 연도 × 일자` 파티션
-- 문서·시험·그림 생성 모듈
-- 서로 다른 후보에 대한 반증 조사와 독립 검토
+- 배리어를 넘기 전에 다음 단계 task를 leasable로 만들기
+- 워커마다 다른 기준선·임계값·기간으로 만든 결과를 하나의 카탈로그에 합치기
+- 파티션 경계에서 패딩 없이 창 특징·ROTI·사건을 계산하기
+- median·MAD를 파티션별로 구해 단순 평균하기
+- 리스 없이 공유 경로에 쓰거나 타 워커 파티션을 재계산해 덮어쓰기
+- 실패 task를 조용히 건너뛰고 전체 완료로 보고하기
+- 속도를 위해 `W_VAL`을 블라인드 워커와 같은 프로세스·큐·경로에서 실행하기
+- 출력 경로에 `shard_index`를 넣어 shard 수를 바꾸면 결과 경로가 달라지게 만들기
 
-단일 소유자가 필요(분할하면 결과 자체가 달라짐):
+# 40. 역할별 실행 런북
 
-- 기준선 파라미터와 임계값 결정
-- StationEvent→NetworkEvent 병합 규칙과 clustering
-- 공간 가중행렬 선택과 다중검정 보정 범위
-- blind freeze와 공식 사건 replay 실행
-- claim registry의 최종 상태 판정과 보고서 수치 확정
+## 40.1 데이터 처리 병렬 런북
 
-위 항목은 여러 작성자가 실험할 수 있으나 **채택은 한 명의 소유자와 그와 다른 검토자를 통해서만** 이루어진다. 실험한 대안 설정은 모두 남기되 채택본을 명확히 표시하고, 여러 작성자의 임계값 실험을 사후에 골라 쓰는 방식으로 결과를 유리하게 만들지 마라.
+R3(소규모 망·기간 파일럿)에서 다음 순서로 검증한 뒤 R4·R5로 확대한다. 워커 수는 실측 자원에 맞춘다.
 
-## 39.11 인수인계·부재·중단
+```powershell
+# [0] 오케스트레이터 (단일 프로세스, 계속 유지)
+python -m rinex_interference.cli doctor  --config config/analysis.yaml
+python -m rinex_interference.cli plan    --config config/analysis.yaml --scale r3 --shards 16
 
-- 세션을 끝낼 때 리스를 해제하거나 만료시각을 갱신하고, `PHASE_HANDOFF.md`와 `coordination/HANDOFF_LOG.md`에 상태·다음 명령·미해결 항목·주의점을 남긴다.
-- 인수인계 기록만으로 다른 작성자가 이어받을 수 있어야 한다. 개인의 기억에만 있는 맥락을 남기지 마라.
-- 장기 부재가 예상되면 소유 범위를 명시적으로 이양하고 이양 기록을 남긴다.
-- 중단 상태는 `blocked` 사유·마지막 유효 checkpoint·정확한 resume 명령과 함께 기록한다.
+# [1] 인벤토리 — IO 바운드
+python -m rinex_interference.cli worker --role W_INV --workers 6
+python -m rinex_interference.cli queue status                     # 완료 확인
 
-## 39.12 협업 실패 모드와 금지사항
+# [2] 품질 + 외부 참조자료 — 역할 병렬(서로 독립)
+python -m rinex_interference.cli worker --role W_QC  --workers 6
+python -m rinex_interference.cli worker --role W_EXT --workers 2
+python -m rinex_interference.cli barrier declare --name b1_inventory_quality_complete
 
-- 타인의 partition을 조용히 재계산해 덮어쓰기
-- 자신의 실행을 통과시키려 게이트·검토·동결 상태를 임의 해제
-- 리스 없이 공유 경로에 쓰기, 강제해제 후 기록 누락
-- 개인 override로 임계값을 바꾼 뒤 공유 결과처럼 보고
-- 공식 사건정보를 블라인드 작성자에게 암시적으로 전달
-- 생산자와 검토자를 동일인으로 두고 이중검토를 수행했다고 기록
-- 병합 충돌을 타인 행 삭제로 해결
-- 승격되지 않은 개인 결과를 최종 수치로 인용
-- 작성자별로 다른 임계값·기간·관측소 집합을 쓴 결과를 하나의 표에 합치기
+# [3] 특징·ROTI — CPU 바운드, 최대 병렬
+python -m rinex_interference.cli worker --role W_FEAT --workers 8
 
-이 중 어느 것이라도 발생하면 은폐하지 말고 `SURPRISES.md`와 `docs/CORRECTIONS.md`에 기록하고, 영향 범위를 재실행하거나 관련 주장을 강등한다.
+# [4] 기준선 — 배리어 뒤 단일 소유, group_key 샤딩
+python -m rinex_interference.cli worker --role W_BASE --workers 4
+python -m rinex_interference.cli barrier declare --name b2_baseline_frozen --evidence <HASH>
 
-# 40. 공동저자권·기여 관리 계약
+# [5] 탐지 → 망 동조성(시간블록) → 경계 재병합
+python -m rinex_interference.cli worker --role W_DET --workers 8
+python -m rinex_interference.cli worker --role W_NET --workers 2
+python -m rinex_interference.cli reduce --stage network_events
 
-이 절은 38절 논문·학위논문 산출물의 저자권 관리다. 실행 권한(39절)과 저자권은 별개다.
+# [6] 반증·분류, 그림 — 후보 단위 병렬
+python -m rinex_interference.cli worker --role W_FALS --workers 4
+python -m rinex_interference.cli worker --role W_FIG  --workers 4
 
-## 40.1 저자 자격
+# [7] 블라인드 동결 후에만 외부검증
+python -m rinex_interference.cli freeze-blind
+python -m rinex_interference.cli barrier declare --name b3_blind_freeze_before_official
+python -m rinex_interference.cli worker --role W_VAL --workers 1
 
-- 저자 자격은 국제 관행(ICMJE 4개 기준 또는 대상 저널의 저자 정책)을 기준으로 판단하고, 프로젝트가 채택한 기준을 `manuscripts/AUTHORSHIP.md`에 명시한다.
-- 기여가 없는 사람을 넣는 선물 저자와 실질 기여자를 빼는 유령 저자를 금지한다.
-- 저자에서 제외되는 기여는 감사의 글에 기록하고 당사자에게 알린다.
-- 대상 저널의 정책이 프로젝트 규칙과 다르면 저널 정책을 따르고 차이를 기록한다.
+# [8] 평가·보고서 — 단일
+python -m rinex_interference.cli evaluate
+python -m rinex_interference.cli report
+```
 
-## 40.2 CRediT 기여표
+운영 규칙:
 
-`manuscripts/paper_{A,B,C}/author_contributions.csv`
+- 각 단계에서 `queue status`로 `pending/leased/failed/poison`을 확인하고, 실패가 남은 채 다음 배리어를 선언하지 않는다.
+- 워커는 언제든 추가·제거할 수 있어야 한다. 워커를 늘렸다고 결과가 달라지면 즉시 중단하고 41.2절 시험으로 원인을 찾는다.
+- 장시간 실행은 워커별 로그를 분리(`logs/worker_<worker_id>.log`)하고 처리량(task/h, GB/h)을 주기적으로 기록한다.
+- 자원이 부족하면 워커 수를 줄이는 것이 먼저이고, 분석 범위 축소(26.3절)는 그다음이다.
+
+## 40.2 구현 작업 병렬 런북
+
+여러 작성자·에이전트가 코드를 동시에 만들 때는 다음 순서를 지킨다. 인터페이스를 먼저 고정하지 않으면 병렬 구현이 재작업으로 끝난다.
+
+1. **인터페이스 동결(직렬, 1인)**: `schemas.py`(테이블·열·타입), `config.py`, 작업 큐 스키마, 안정 ID 규칙, provenance 열. 이것이 끝나기 전에는 병렬 구현을 시작하지 않는다.
+2. **골든 픽스처 우선**: 실제 파일 2~3개에서 만든 소형 fixture와 기대 출력(28절 golden)을 먼저 만든다. 각 모듈 담당자는 이 fixture로 자기 모듈을 검증한다.
+3. **모듈 단위 소유권**: 파일 경계로 나눈다. 예) A: `compression.py`+`rinex_header.py`+`rinex_reader.py`, B: `time_systems.py`+`station_metadata.py`+`orbit_geometry.py`, C: `features/*`, D: `baseline.py`+`anomaly.py`, E: `network_events.py`+`confounders.py`, F: `evaluation.py`+`reporting.py`+`plotting.py`, G: 큐·CLI·오케스트레이션. 같은 파일을 두 사람이 동시에 고치지 않는다.
+4. **공유 파일 규칙**: `schemas.py`·`config.py`·`cli.py`처럼 모두가 건드리는 파일은 변경 전 선점(청구)하고 짧게 끝낸다. 스키마 변경은 소유자 승인 후 일괄 반영한다.
+5. **병합 순서**: 하위 의존(파서·시간·기하) → 특징 → 기준선·탐지 → 망·반증 → 평가·보고. 상위 모듈을 먼저 병합해 하위 인터페이스를 강제하지 마라.
+6. **각 병합의 완료 조건**: 해당 모듈 단위시험 통과, golden 재생성 결과 동일, placeholder 스캔 통과, 스키마 변경 시 마이그레이션·재실행 범위 기록.
+7. **에이전트에게 맡길 때**: 15.4절 모듈 문서 + 해당 모듈의 스키마·fixture·시험만 컨텍스트로 준다. 다른 모듈의 코드를 고치지 말라고 범위를 명시한다.
+
+## 40.3 최소 구성과 확장
+
+- **워커 1개**: `max_total_workers: 1`. 큐·배리어·샤딩은 그대로 두고 순차 실행한다. 이 결과가 모든 불변성 시험의 기준(reference)이 된다.
+- **소규모(4~8 코어 1대)**: 위 40.1 런북을 그대로 쓰되 역할별 워커 수를 절반으로 시작한다.
+- **여러 대**: 큐를 한 대(또는 신뢰 가능한 DB)에 두고 원시자료 읽기 대역폭을 먼저 측정한다. 파일 접근이 병목이면 노드를 늘려도 처리량이 늘지 않는다. 노드별로 `cache/`는 로컬에 두고 공식 산출물만 공유 저장소에 승격한다.
+- 확장 전후로 반드시 41.2절 불변성 시험을 다시 통과시킨다.
+
+# 41. 병렬 실행 검증·성능 계약
+
+## 41.1 검증 순서
+
+병렬화는 R1·R2에서 만들지 말고, 직렬로 정확성을 확보한 뒤 R3에서 도입한다. 순서를 바꾸면 병렬 버그와 과학적 오류가 섞여 원인을 분리할 수 없다.
+
+1. R1·R2: 워커 1개, 큐·배리어 구조만 갖춘 직렬 실행으로 정확성 확보
+2. R3: 워커 2~4개로 확장하고 불변성 시험 통과
+3. R4: 목표 워커 수로 확장, 처리량·자원 실측, 병목 식별
+4. R5: 확정된 구성으로 전체 실행, 실측 기반 소요시간 재산정
+
+## 41.2 불변성 시험
+
+- `--workers 1` 결과를 기준으로 `--workers N`, `--shards 1/4/16` 결과의 내용 해시가 동일(provenance 열 제외)
+- 사건 ID·경계 사건 수·후보 수가 워커 수와 무관
+- 중단 후 재개 결과가 무중단 실행과 동일
+- 실패·재시도가 있었던 실행과 없던 실행의 최종 산출물이 동일
+- 불일치가 발견되면 성능 문제로 취급하지 말고 정확성 결함으로 기록·수정한다.
+
+## 41.3 경계·집계 시험
+
+- 자정·시간블록 경계를 걸치는 합성 사건이 직렬 실행과 동일하게 검출·병합되는지
+- 경계에 걸친 ROTI arc가 패딩 후 유효값으로 계산되는지
+- 스케치 기반 median·MAD와 정확값의 오차가 대표 그룹에서 허용 범위인지
+- 축약 순서를 바꿔도 tolerance 안에서 동일한지
+
+## 41.4 성능 측정과 보고
+
+다음을 실측해 `reports/16_parallel_execution_report.md`에 남긴다. 추정값을 실측처럼 쓰지 마라.
 
 ```text
-paper_id
-author_id
-author_order
-credit_roles            # conceptualization, methodology, software, validation, formal_analysis,
-                        # investigation, data_curation, writing_original_draft,
-                        # writing_review_editing, visualization, supervision,
-                        # project_administration, funding_acquisition
-supporting_claim_ids
-supporting_artifacts
-accountable_sections
-approved_final_version  # yes | no | pending
-approved_at_utc
-conflict_of_interest
+role
+worker_count
+tasks_done / failed / poison
+wall_clock_seconds
+cpu_seconds
+throughput (task/h, station_day/h, GB/h)
+peak_rss_mb_per_worker
+disk_read_mb_s / disk_write_mb_s
+scaling_efficiency (workers=1 대비)
+bottleneck_class (cpu | io | memory | lock | external_network)
 ```
 
-- 각 기여는 `docs/CLAIM_REGISTRY.csv`의 claim ID 또는 실제 산출물·커밋으로 역추적할 수 있어야 한다. 근거 없는 기여를 쓰지 마라.
-- 기여표는 원고 제출 전 모든 저자가 확인·승인한다. 승인 전 상태는 `pending`이며 제출 준비 완료로 보고하지 마라.
-
-## 40.3 저자 순서와 교신저자
-
-- 순서 규칙(예: 기여도 순, 공동 제1저자 표기)과 근거를 `AUTHORSHIP.md`에 사전에 적고, 결과에 따라 바뀌면 변경 이유와 합의 기록을 남긴다.
-- 교신저자와 데이터·코드 가용성 문의 담당자를 논문별로 지정한다.
-- 학위논문 장별 기여는 소속 기관 규정을 따르고, 공동 산출물의 사용 범위를 `manuscripts/dissertation/chapter_map.md`에 명시한다.
-
-## 40.4 AI·자동화 도구 공개
-
-- 코딩 에이전트·LLM은 **저자가 될 수 없다.** 도구로 취급하고 사용 범위를 공개한다.
-- 공개 항목: 도구·모델·버전, 사용 단계(코드 생성, 문헌 요약, 문장 교정 등), 사람의 검증 방식, 실행 책임자(`operated_by`).
-- 자동 생성 코드·문장의 최종 책임은 사람 저자에게 있다. 검증하지 않은 자동 생성 결과를 원고에 남기지 마라.
-- 대상 저널의 AI 사용 정책을 확인해 요구 형식에 맞게 방법절 또는 감사의 글에 기재한다. 확인하지 못했으면 `확인 필요`로 남긴다.
-
-## 40.5 기여 분쟁과 변경
-
-- 분쟁은 삭제·재작성이 아니라 기록으로 해결한다. 원 기여표를 supersede하고 변경 사유와 합의 과정을 남긴다.
-- 합의되지 않으면 `unresolved`로 표기하고 제출을 보류한다. 합의 없는 제출을 진행하지 마라.
-
-## 40.6 데이터·코드 가용성 책임
-
-- `reports/14`의 가용성 문안에 대해 논문별 책임 저자를 지정한다.
-- 원시 CORS 자료의 재배포 제한, 공개 가능한 파생 산출물 범위, 코드·설정·해시 공개 방법을 저자 전원이 확인한다.
-- 공개할 수 없는 자료를 공개 가능한 것처럼 서술하지 마라.
-
-# 41. 계약 문서 공동 개정 계약
-
-이 문서(V7) 자체도 여러 작성자가 함께 수정한다.
-
-## 41.1 절 소유자
-
-`docs/CONTRACT_OWNERS.csv`에 절 번호·제목·소유자·검토자를 기록한다. 소유자가 없는 절은 `lead_integrator`가 임시 소유한다.
-
-## 41.2 개정 절차
-
-1. 제안자가 변경 목적과 영향 범위(코드·설정·산출물·이미 생성된 결과)를 적는다.
-2. 해당 절 소유자와 최소 1인의 검토자가 확인한다. 과학적 제한·증거등급·누출방지·안전 조항의 변경은 `lead_integrator` 승인이 추가로 필요하다.
-3. 병합 후 `contract_version`, `contract_hash`, 변경 요약을 `docs/CONTRACT_CHANGELOG.md`에 남긴다.
-4. 이미 실행된 결과에 영향을 주는 개정이면 재실행 범위와 기존 claim의 supersede 계획을 함께 적는다.
-
-## 41.3 버전·해시 규칙
-
-- 과학적 규칙·스키마·게이트가 바뀌면 주버전(V7→V8)을 올린다. 문구 정리·오탈자는 부버전(V7.1)으로 올리고 `contract_version` 문자열에 반영한다.
-- 설정의 `contract_version`과 문서 제목·파일명을 항상 일치시킨다.
-- 실행 산출물에 사용한 `contract_version`과 `contract_hash`를 기록한다. 실행 중 계약이 바뀌면 산출물이 어느 판으로 만들어졌는지 구분할 수 있어야 한다.
-
-## 41.4 개정 금지사항
-
-- 과학적 제한, 금지 표현, 증거등급 상한, 블라인드 격리, 원시자료 보호 조항을 삭제·완화·축약하지 마라. 15.4절 모듈화에서도 동일하다.
-- 특정 결과를 통과시키기 위한 사후 임계값·게이트 완화를 금지한다. 필요하면 새 실험으로 제안하고 사전에 승인받는다.
-- 개정 이력을 지우지 마라.
-
-## 41.5 `docs/CONTRACT_CHANGELOG.md`
-
-```text
-change_id
-contract_version_before
-contract_version_after
-sections_changed
-change_type            # editorial | clarification | scientific_rule | schema | gate | safety
-rationale
-proposed_by
-reviewed_by
-approved_by
-affected_artifacts
-rerun_scope
-recorded_at_utc
-contract_hash_after
-```
+- 워커 수를 늘려도 처리량이 늘지 않는 지점을 찾아 병목을 명시한다. 대개 원시자료 IO 또는 압축 해제다.
+- 잠금 경합·큐 지연이 전체 시간의 유의한 비율이면 shard 크기를 키워 task 수를 줄인다(task가 너무 잘면 오버헤드가 커진다).
+- 전체 소요시간 산정(25.2절)은 이 실측값으로 갱신한다.
 
 # 실행을 시작하라
 
@@ -3218,19 +3204,17 @@ contract_hash_after
 
 즉시 다음 순서로 수행한다.
 
-1. 자신의 `author_id`·역할·`blind_status`를 확정한다. `config/authors.yaml`과 `docs/AUTHOR_REGISTRY.csv`가 없으면 먼저 만들고, 있으면 타인의 진행 중 청구·잠금·인수인계 기록을 먼저 읽는다.
-2. 이번 세션에서 수행할 범위를 `coordination/WORK_CLAIMS.csv`에 청구하고 리스를 획득한다. 타인이 소유한 범위는 건드리지 말고 남은 범위에서 고른다.
-3. 원시자료와 결과경로의 존재·권한을 읽기 전용으로 확인한다.
-4. 적용 규칙, Git 상태, 기존 코드·보고서·후보·설정과 타 작성자의 승격·미승격 산출물을 감사한다.
-5. 환경, 도구, CPU, RAM, disk, 호스트 시계 오차, 공유 저장소의 잠금 원자성을 기록한다.
-6. 진행파일·협업 원장과 초기 manifest를 만든다.
-7. Phase 1 헤더 중심 전수 인벤토리를 수행한다.
-8. 실제 RINEX version·압축·관측코드를 근거로 R1 표본을 선택한다.
-9. R1을 end-to-end로 구현·시험하고 모든 게이트를 기록한다.
-10. gate가 통과할 때에만 R2→R3→R4→R5로 확장한다.
-11. blind artifact를 freeze하기 전에 공식 사건정보를 탐지에 사용하지 않는다. 방화벽 상태를 기록한다.
-12. 상위 후보에 모든 반증을 수행하고, 생산자가 아닌 작성자의 검토를 받은 뒤 최종 보고한다.
-13. 세션을 끝내거나 중단할 때 리스를 해제·갱신하고 `PHASE_HANDOFF.md`와 `coordination/HANDOFF_LOG.md`에 다음 작성자가 이어받을 수 있는 상태와 정확한 명령을 남긴다.
+1. 원시자료와 결과경로의 존재·권한을 읽기 전용으로 확인한다.
+2. 적용 규칙, Git 상태, 기존 코드·보고서·후보·설정을 감사한다.
+3. 환경, 도구, CPU, RAM, disk, 원시자료 저장장치의 읽기 대역폭을 기록한다.
+4. 진행파일·`WORKER_STATUS.md`와 초기 manifest를 만든다.
+5. Phase 1 헤더 중심 전수 인벤토리를 수행한다.
+6. 실제 RINEX version·압축·관측코드를 근거로 R1 표본을 선택한다.
+7. **워커 1개(직렬)로** R1을 end-to-end로 구현·시험하고 모든 게이트를 기록한다. 이 결과가 이후 병렬 실행의 기준이다.
+8. R2까지 직렬로 통과한 뒤 R3에서 작업 큐·배리어·샤딩을 도입하고 41.2절 불변성 시험을 통과시킨다.
+9. gate와 불변성 시험이 통과할 때에만 워커 수를 늘리고 R4→R5로 확장한다. 처리량·병목을 실측해 기록한다.
+10. blind artifact를 freeze하기 전에 공식 사건정보를 탐지에 사용하지 않는다. `W_VAL`은 B3 이후 별도 프로세스로만 실행한다.
+11. 상위 후보에 모든 반증을 수행한 뒤 최종 보고한다.
 
 광범위한 사전 질문만 던지고 멈추지 마라. 접근 가능한 파일을 먼저 감사하고 안전한 기본값으로 R1까지 진행한다. 실제로 막히는 권한, 경로, 저장공간, 암호화, 손상 문제만 정확한 증거와 필요한 조치와 함께 질문한다.
 
