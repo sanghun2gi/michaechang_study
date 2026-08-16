@@ -2,15 +2,33 @@
 
 # CORS RINEX 30초 GNSS 전파교란 분석 실행 프롬프트
 
-## V7 — 역할 분담 다중 워커 병렬 실행 보강판
+## V7.1 — 병렬 실행 + 미규정 사례·세션·실측 반영판
 
-> **버전 계보**: V6(규모실행·과학검증·국제표준 정합 보강판)의 모든 조항을 계승하고, **이 계약의 작업을 역할이 다른 여러 워커 프로세스가 나누어 동시에 수행**할 수 있도록 병렬 실행 계약(39~41절)을 추가한 판이다. V6의 과학적 제한, 증거등급 상한, 블라인드 격리, 누출방지, 원시자료 보호 조항은 어느 것도 완화되지 않았다. 파일명과 문서 버전을 **V7**로 일치시키며 설정의 `contract_version: 'V7'`으로 이 문서를 식별한다.
+> **버전 계보**: V6(규모실행·과학검증·국제표준 정합 보강판)의 모든 조항을 계승하고, V7에서 **역할이 다른 여러 워커 프로세스의 병렬 실행 계약(39~41절)**을, V7.1에서 **미규정 사례·실행 세션·실측 반영 계약(42~44절)**을 추가한 판이다. V6·V7의 과학적 제한, 증거등급 상한, 블라인드 격리, 누출방지, 원시자료 보호 조항은 어느 것도 완화되지 않았다. 파일명과 문서 버전을 **V7.1**로 일치시키며 설정의 `contract_version: 'V7.1'`으로 이 문서를 식별한다.
 
 > **워커가 1개일 때**: 39~41절은 `parallel_execution.max_total_workers: 1`로 두면 그대로 직렬 실행이 된다. 그래도 작업 큐·배리어·샤딩 키·`worker_id` 기록은 유지한다. 나중에 워커를 늘릴 때 코드와 산출물 구조를 바꾸지 않아도 되게 하기 위함이다.
 
+> **V7.1의 전제**: 어떤 계약도 실제 데이터의 모든 사례를 미리 규정할 수 없다. 그래서 이 개정은 조항을 늘리는 대신 **규칙이 없는 상황을 만났을 때의 규칙(42절)**, **실행 컨텍스트가 끊길 때의 규칙(43절)**, **사전 감사에서 드러난 이 자료의 실제 특성(44절)** 을 추가한다. 계약에 없는 상황에서 조용히 임의 처리하는 것이 이 프로젝트의 가장 큰 재현성 위험이다.
+
 이 문서는 계획서가 아니라 **실제 코드 작성, 실제 데이터 감사, 시험, R1→R5 규모 확장, 후보 반증, 외부검증, 최종보고서 생성까지 수행하게 하는 프로젝트 실행 계약**이다.
 
-### 이번 개정(V7)에서 보강된 사항
+### 이번 개정(V7.1)에서 보강된 사항
+
+1. **미규정 사례 처리 계약(42절)**: 계약에 규칙이 없는 상황에서 멈추지도 임의로 정하지도 말고, `docs/UNSPECIFIED_CASES.csv`에 기록하고 **보수적 기본값**(제외 대신 격리, 추정 대신 `unassessable`, 병합 대신 분리, 승격 대신 보류)을 적용한 뒤 계속한다. 같은 사례가 누적되면 그 자체가 계약 개정 요청이다.
+2. **에이전트 세션 계약(43절)**: 실행 컨텍스트가 바뀌어도 판단이 유실되지 않도록 `session_id` 기록, 세션 시작 시 필수 읽기, 세션 종료 시 판단 기록 의무, 불변 조항 상시 주입, **세션 안에서 `blind_status`를 바꾸지 않는 규칙**을 둔다.
+3. **관측 세션(자정) 경계 계약(44.1절)**: 일 단위 파일 경계에서 arc·모호도·clock이 재초기화되는 물리적 효과를 데이터 파이프라인 이상과 분리해 다루고, **파일·세션 단위 중심화를 금지**하며 자정 인접 사건 비율을 별도 보고한다.
+4. **canonical 파일 선택 규칙(44.2절)**: 같은 station-day에 형식이 다른 파일이 공존할 때 무엇을 쓸지 정의한다. 사전 감사에서 실제로 확인된 사례다.
+5. **항법자료 병합 계약(44.3절)**: 다수 nav 파일의 중복 ephemeris 제거, health·age 필터, 충돌 시 처리.
+6. **관측소 코호트 정책(44.4절)**: 관측소 수가 늘어난 자료에서 연도 비교를 고정 코호트와 전체 중 무엇으로 할지 확정하고 둘 다 보고한다.
+7. **위성군 coverage regime(44.5절)**: 가용 위성군이 늘어난 시점을 regime 경계로 삼아 '위성 수 급락' 검출기의 연도별 민감도 차이를 통제한다.
+8. **분석집합 동결과 신규 자료(44.6절)**: 실행 중 자료가 늘어나도 동결된 기준선·blind freeze를 오염시키지 않고 새 run으로 분리한다.
+9. **위성×epoch 저장 전략(44.7절)**: 수십억 행을 전량 저장하지 않고 스트리밍 누산기 + 사건창 전량 + 정상 층화표본으로 처리한다.
+10. **후보율 가드·처리량 게이트(44.8절)**: 후보율이 기대 범위를 벗어나면 임계값을 조용히 조정하지 말고 중단·원인규명한다. 전체 예상 소요가 상한을 넘으면 다음 규모로 진입하지 않고 병목을 먼저 고친다.
+11. **수동검토 표본·캐시·로그 운영(44.9~44.10절)**: 후보가 많을 때의 층화표본 규칙, 해제 캐시 수명·용량 상한, 로그 폭증 방지.
+
+이 개정은 새로운 과학적 요구를 추가하지 않는다. 기존 조항이 다루지 못한 **실행 중 판단 공백**을 메우는 것이 전부이며, 과학적 제한·증거등급 상한·누출방지·원시자료 보호는 그대로다.
+
+### 이전 개정(V7)에서 보강된 사항
 
 목적은 하나다. **역할이 다른 여러 프로세스(워커)가 이 계약의 작업을 나누어 동시에 수행해도 결과가 직렬 실행과 동일해야 한다.** 병렬화는 속도 최적화이며, 어떤 경우에도 과학적 제한·게이트·블라인드 격리보다 앞설 수 없다.
 
@@ -154,6 +172,8 @@ leased_task_ids
 12. 워커는 자신이 lease한 task의 출력 경로에만 쓴다. 타인의 파티션은 읽기만 하고 조용히 재계산해 덮어쓰지 않는다.
 13. 배리어(39.3절)를 워커가 스스로 넘지 않는다. 통과 선언은 orchestrator만 한다.
 14. 병렬 실행 중 자원 부족·디스크 포화가 발생하면 새 task lease를 멈추고 진행 중 task를 정상 종료시킨다. 강제 종료로 부분 산출물을 남기지 마라.
+15. **계약에 규칙이 없는 상황을 만나면 임의로 정하지 말고 42절을 적용한다.** 기록 없이 내린 임시 판단은 이 프로젝트에서 가장 흔한 재현성 결함이다.
+16. 세션(실행 컨텍스트)이 끊길 조짐이 있으면 모듈을 반쪽 구현하지 말고, 원자적 작업을 마무리·시험한 뒤 43절의 인계 기록을 남기고 깨끗한 경계에서 멈춘다.
 
 # 프로젝트 구조
 
@@ -839,7 +859,7 @@ analysis_30s_interference/
 ```yaml
 project:
   name: cors_rinex_30s_interference    # resume 동일성 유지를 위해 버전을 이름에 넣지 않는다
-  contract_version: 'V7'
+  contract_version: 'V7.1'
   timezone_report: Asia/Seoul
   language: ko
 
@@ -896,6 +916,109 @@ parallel_execution:
     unblinded_roles: [W_VAL]
     unblinded_output_root: validation_unblinded
     forbid_shared_queue_with_blinded_roles: true
+
+unspecified_cases:                       # 42절
+  policy: record_conservative_default_and_continue
+  register_path: docs/UNSPECIFIED_CASES.csv
+  escalation_count: 20                   # 같은 case_id가 이 수를 넘으면 계약 개정 요청
+  conservative_defaults:
+    - quarantine_never_delete
+    - unassessable_never_estimate
+    - split_never_merge
+    - hold_never_promote
+  block_final_numbers_until_resolved: true
+
+session:                                 # 43절 — 에이전트 실행 컨텍스트
+  require_session_id: true
+  must_read_on_start:
+    - docs/runbook/00_invariants_and_goal.md
+    - PHASE_HANDOFF.md
+    - docs/IMPLEMENTATION_STATUS.md
+    - DECISIONS.md
+    - docs/UNSPECIFIED_CASES.csv
+  always_in_context:                     # 축약·생략 금지
+    - scientific_limitations
+    - evidence_grade_caps
+    - blind_isolation_rules
+    - raw_data_protection
+  blind_status_fixed_within_session: true
+  stop_at_clean_boundary: true
+  record_decisions_before_exit: true
+
+observation_session:                     # 44.1절 — GNSS 관측 세션(일 단위 파일)
+  file_is_session_default: true
+  stitch_across_day_boundary: true
+  max_stitch_gap_seconds: 60
+  stitch_break_on: [receiver_reset, clock_step, coordinate_jump, obs_code_change, time_reversal]
+  forbid_per_file_or_session_centering: true
+  midnight_window_seconds: 300
+  report_boundary_adjacent_event_fraction: true
+
+canonical_file_selection:                # 44.2절
+  priority:
+    - higher_rinex_version
+    - larger_valid_epoch_count
+    - wider_observation_span
+    - more_observation_codes
+    - later_mtime
+  content_equality_keys: [epoch_count, first_epoch, last_epoch, observation_code_set]
+  on_tie: quarantine_and_report
+  never_delete_alternatives: true
+
+navigation_merge:                        # 44.3절
+  source_priority: [sp3_clk, local_broadcast_nav, external_brdc]
+  dedupe_key: [constellation, prn, toe_or_toc, iode_or_iodc]
+  exclude_unhealthy: true
+  max_ephemeris_age_hours: 4
+  on_conflict: keep_all_and_record_selection
+
+station_cohort:                          # 44.4절
+  primary: fixed_cohort_present_in_all_analysis_years
+  secondary: all_available_with_exposure_normalization
+  report_both: true
+  freeze_before_evaluation: true
+
+constellation_coverage_regime:           # 44.5절
+  new_constellation_starts_new_regime: true
+  min_stable_days_to_close_regime: 7
+
+reprocessing:                            # 44.6절
+  analysis_set_frozen_by: analysis_cutoff_utc
+  new_data_policy: new_run_id_never_extend_frozen_baseline
+  rebaseline_requires: [orchestrator_approval, documented_scope, superseded_claims]
+
+satellite_obs_retention:                 # 44.7절
+  mode: events_plus_sample               # full | events_plus_sample | sample_only
+  event_window_seconds: 1800
+  normal_sample_fraction: 0.01
+  sample_strata: [station_id, regime_id, constellation, elevation_bin, season]
+  full_mode_requires_free_disk_multiple: 3
+
+candidate_rate_guard:                    # 44.8절
+  expected_alert_rate_per_valid_station_day: [0.0001, 0.05]   # configured
+  action_outside_range: stop_and_diagnose_never_silently_retune
+
+runtime_guard:
+  max_full_run_hours: 96                 # configured
+  measure_at: [r1, r2, r3]
+  action_if_exceeded: fix_bottleneck_before_next_scale
+
+manual_review:                           # 44.9절
+  full_review_max_candidates: 200
+  stratify_by: [evidence_grade, station_id, month, primary_hypothesis]
+  sample_seed: 20260330
+  report_sampling_fraction: true
+
+cache_policy:                            # 44.10절
+  decompressed_ttl_minutes: 30
+  delete_on_task_success: true
+  max_cache_gb: configured
+  stop_lease_below_free_gb: configured
+
+log_policy:
+  per_file_level: warning_and_above
+  success_goes_to_manifest_not_log: true
+  max_log_gb: configured
 
 constellations:
   include: [G, R, E, C]                # 기본 분석 대상
@@ -1052,6 +1175,9 @@ external_validation_sources:
 - `SURPRISES.md`: 예상과 다른 데이터·성능·품질 발견
 - `RUN_LOG.md`: 실행시각, 명령, run ID, `worker_id`·`role`·shard, 종료코드, 산출물
 - `WORKER_STATUS.md`: 현재 살아 있는 워커, 역할, lease 중인 task, 마지막 heartbeat, 처리량, 배리어 상태
+- `docs/IMPLEMENTATION_STATUS.md`: Phase별 구현 상태, 구현 파일, 실행 명령, 시험 결과, 실자료 검증 범위, 남은 차단요인, `descoped_to_future_work`
+- `docs/UNSPECIFIED_CASES.csv`: 계약에 규칙이 없어 임시 처리한 사례와 그 영향(42절)
+- `docs/SESSION_LOG.csv`: 세션별 시작·종료, 읽은 문서, 내린 판단, 남긴 인계(43절)
 
 `queue/`의 task 상태와 `WORKER_STATUS.md`만으로 "지금 무엇이 돌고 있고 무엇이 남았는지"를 알 수 있어야 한다. 워커가 모두 죽어도 큐와 partition manifest로 재개할 수 있어야 한다.
 
@@ -2036,7 +2162,10 @@ inventory, provenance, quality, baseline, falsification을 생략해 속도를 �
 - parser silent loss 또는 row reconciliation 실패
 - schema drift로 기존 partition과 혼합 위험
 - config/code hash 없이 resume하려는 경우
-- candidate rate 폭증 원인 미확인
+- candidate rate가 `candidate_rate_guard` 범위를 벗어나고 원인 미확인 (임계값 조정으로 대응 금지)
+- 전체 예상 소요가 `runtime_guard.max_full_run_hours`를 초과하는데 병목 개선 없이 다음 규모로 진입하려는 경우
+- 해제 캐시가 `cache_policy` 상한을 넘어 계속 증가하는 경우
+- 미규정 사례가 `unspecified_cases.escalation_count`를 넘었는데 규칙 확정 없이 최종 수치를 만들려는 경우
 - official-event leakage 발견
 - 기존 사용자 변경과 충돌
 
@@ -2768,6 +2897,24 @@ limitations
 - [ ] `W_VAL`이 별도 프로세스·별도 경로로 격리 실행되었다.
 - [ ] 워커 수별 실측 처리량·peak RSS·디스크 사용과 병목을 기록했다.
 
+## 미규정 사례·세션·자료 특이사항
+
+- [ ] 계약에 규칙이 없던 사례를 모두 `docs/UNSPECIFIED_CASES.csv`에 기록하고 보수적 기본값을 적용했다.
+- [ ] 누적 임계를 넘은 미규정 사례는 규칙으로 확정했거나 최종 수치에서 제외했다.
+- [ ] 모든 산출물에 `session_id`가 있고, 세션 시작 시 필수 문서를 읽은 기록이 있다.
+- [ ] 한 세션 안에서 `blind_status`를 바꾸지 않았다.
+- [ ] 세션 종료 시 그 세션에서 내린 판단이 `DECISIONS.md`에 남았다.
+- [ ] 파일·세션 단위 중심화를 사용하지 않았고, 자정 인접 사건 비율을 보고했다.
+- [ ] 자정 경계를 걸친 arc·사건을 규칙대로 연결하거나 분리하고 그 근거를 남겼다.
+- [ ] 같은 station-day의 중복·이형 파일에 canonical 선택 규칙을 적용하고 대안을 보존했다.
+- [ ] 항법자료의 중복 ephemeris·health·age 필터를 적용하고 선택 근거를 기록했다.
+- [ ] 연도 비교를 고정 코호트와 전체 두 가지로 보고했다.
+- [ ] 위성군 확대 시점을 regime 경계로 처리했다.
+- [ ] 실행 중 추가된 자료를 동결된 분석집합에 섞지 않았다.
+- [ ] 위성×epoch 행을 전량 저장하지 않았고, 표본 통계를 전량 통계처럼 보고하지 않았다.
+- [ ] 후보율이 기대 범위 안이었거나, 벗어난 경우 원인을 규명했다(임계값 조정 아님).
+- [ ] 수동검토를 전수로 못 했다면 층화표본 규칙과 표본 비율을 보고했다.
+
 ## Report
 
 - [ ] claim registry와 source register가 있다.
@@ -2808,7 +2955,10 @@ limitations
 24. 워커 수별 실측 처리량·스케일 효율·병목 단계와 자원 상한
 25. shard/worker 불변성 시험 결과와 분산 집계 근사 오차
 26. 다음 정확한 resume 명령(큐 상태 기준)과 남은 task 범위
-27. 1초/RF 후속검증 명령
+27. 미규정 사례 건수·유형과 그것이 결론에 준 영향
+28. 세션 수·인계 기록 상태와 이번 세션에서 확정한 판단
+29. 자정 경계 사건 비율, canonical 선택·격리 파일 수, 코호트별 비교 결과
+30. 1초/RF 후속검증 명령
 
 각 숫자는 전수·표본·추정 중 무엇인지 표시하고 claim ID 또는 산출물에 연결한다.
 
@@ -3198,23 +3348,244 @@ bottleneck_class (cpu | io | memory | lock | external_network)
 - 잠금 경합·큐 지연이 전체 시간의 유의한 비율이면 shard 크기를 키워 task 수를 줄인다(task가 너무 잘면 오버헤드가 커진다).
 - 전체 소요시간 산정(25.2절)은 이 실측값으로 갱신한다.
 
+# 42. 미규정 사례 처리 계약
+
+이 계약은 완결될 수 없다. 실제 자료는 항상 조항보다 한 걸음 앞서 있고, 빈틈은 언제나 **계약이 데이터와 처음 만나는 지점**에서 생긴다. 따라서 규칙이 없는 상황 자체를 예외가 아니라 **정상 업무 흐름**으로 다룬다.
+
+## 42.1 기본 행동
+
+계약에 규칙이 없는 상황을 만나면 다음을 모두 수행한다. **멈추지도, 임의로 정하지도 않는다.**
+
+1. `docs/UNSPECIFIED_CASES.csv`에 기록한다.
+2. 아래 보수적 기본값 중 해당하는 것을 적용하고 계속 진행한다.
+3. 영향을 받는 산출물에 `unspecified_case_ids` 열로 연결한다.
+4. 같은 `case_id`가 `escalation_count`를 넘으면 그 자체가 계약 개정 요청이다. orchestrator가 규칙을 확정하기 전까지 그 사례가 포함된 결과를 **최종 수치로 쓰지 않는다.**
+
+## 42.2 보수적 기본값
+
+| 상황 | 하지 말 것 | 할 것 |
+|---|---|---|
+| 해석 불가 파일·레코드 | 삭제·건너뛰기 | **격리**하고 사유 기록 |
+| 판정 근거 부족 | 추정값 생성 | `unassessable` 또는 `not_computed` |
+| 같은 것인지 불확실한 두 대상 | 병합 | **분리 유지**하고 관계만 기록 |
+| 증거등급·후보 승격 애매 | 상향 | **보류**하고 판단 근거 기록 |
+| 단위·의미 불확실한 관측값 | 다른 값으로 환산 | 원값 보존 + `unit_confidence` 강등 |
+| 시각 해석 불확실 | 임의 보정 | 격리하고 시간계 확인 전까지 망 동시성 분석 제외 |
+
+## 42.3 `docs/UNSPECIFIED_CASES.csv`
+
+```text
+case_id                  # 사례 유형의 안정 ID (내용 기반 해시)
+first_seen_at_utc
+occurrences
+stage / module
+input_example            # 파일 상대경로·행·필드 (원시자료를 복사하지 말 것)
+why_unspecified          # 어느 절이 이 경우를 다루지 않는지
+temporary_handling       # 적용한 보수적 기본값
+affected_artifacts
+affected_claim_ids
+reversal_procedure       # 규칙 확정 시 되돌리는 방법
+status                   # open | escalated | ruled | superseded
+ruled_by / ruled_at_utc / rule_reference
+session_id / worker_id / run_id
+```
+
+## 42.4 보고 의무
+
+- 최종 보고서에 미규정 사례 목록과 **그것이 결론에 준 영향**을 반드시 싣는다.
+- 미규정 사례가 하나도 없다는 보고는 신뢰하지 않는다. 대개는 기록하지 않은 것이다.
+- 규칙이 확정되면 조항을 41절 절차로 개정하고, 기존 임시 처리 결과의 재실행 범위를 명시한다.
+
+# 43. 세션 계약
+
+이 문서에서 **세션**은 두 가지를 뜻하며 절대 혼동하지 않는다.
+
+- **실행 세션(execution session)**: 사람 또는 코딩 에이전트의 한 번의 작업 컨텍스트. 이 절의 대상이다.
+- **관측 세션(observation session)**: GNSS 관측 파일 하나가 담는 시간 구간(기본 24시간). 44.1절의 대상이다.
+
+## 43.1 왜 실행 세션이 연구 결과에 영향을 주는가
+
+- 세션은 **기억의 경계**다. 세션 안에서만 존재했던 판단(왜 이 파일을 제외했는지, 왜 이 임계값을 골랐는지)은 세션이 끝나면 사라지고, 다음 세션은 같은 계약을 읽고도 다르게 해석한다.
+- 세션은 **분석자 자유도**를 만든다. 세션마다 규칙이 조금씩 바뀌면 사후 튜닝과 구분되지 않는다.
+- 세션은 **블라인드 경계**다. 한 세션에서 공식 사건자료를 읽은 뒤 같은 세션에서 기준선을 만지면, 프로세스가 분리되어 있어도 누출은 이미 일어난 것이다.
+- 컨텍스트 한계 때문에 계약 전체를 매번 주입할 수 없다. 모듈만 주입하면 **과학적 제한이 빠진 채 실행**될 위험이 생긴다.
+
+## 43.2 세션 시작 의무
+
+새 세션은 다음을 먼저 읽고, 읽었다는 사실을 `docs/SESSION_LOG.csv`에 남긴다.
+
+```text
+docs/runbook/00_invariants_and_goal.md   # 불변 조항
+PHASE_HANDOFF.md                          # 현재 Phase와 다음 정확한 1개 작업
+docs/IMPLEMENTATION_STATUS.md             # 무엇이 구현·검증되었는지
+DECISIONS.md                              # 이미 내려진 판단(재논의 금지)
+docs/UNSPECIFIED_CASES.csv                # 열린 미규정 사례
+```
+
+읽지 않고 시작해 이미 내려진 판단을 뒤집는 것을 금지한다. 판단을 바꿔야 한다면 재논의가 아니라 **supersede 절차**를 따른다.
+
+## 43.3 불변 조항 상시 주입
+
+15.4절 모듈화로 컨텍스트를 나눌 때에도 다음은 **어떤 세션에서도 축약·생략하지 않는다.**
+
+- 가장 중요한 과학적 제한, 금지 표현
+- 증거등급 상한(RINEX 단독 E3)
+- 블라인드 격리와 누출 방지
+- 원시자료 보호
+- 42절 미규정 사례 기본 행동
+
+## 43.4 세션 중 규칙
+
+- 한 세션 안에서 `blind_status`를 바꾸지 않는다. 공식 사건자료를 열람해야 하면 **세션을 종료하고 새 세션을 unblinded로 시작**한다.
+- 컨텍스트가 부족해질 조짐이 있으면 코드를 축약하거나 여러 모듈을 반쪽 구현하지 않는다. 현재 원자적 작업을 완료·시험한 뒤 깨끗한 경계에서 멈춘다.
+- 세션에서 새로 만든 규칙·임계값·예외 처리는 즉시 `DECISIONS.md` 또는 `UNSPECIFIED_CASES.csv`에 쓴다. 세션 종료 시 몰아 쓰지 않는다(잊는다).
+
+## 43.5 세션 종료 의무
+
+```text
+session_id
+started_at_utc / ended_at_utc
+role / blind_status
+documents_read
+tasks_completed / tasks_left_open
+decisions_made              # DECISIONS.md 레코드 ID
+unspecified_cases_opened
+artifacts_written
+next_single_action          # 다음 세션이 할 정확히 하나의 작업
+```
+
+`PHASE_HANDOFF.md`와 이 기록만으로 다른 세션이 이어받을 수 있어야 한다. **개인의 기억에만 있는 맥락을 남기지 마라.**
+
+## 43.6 세션과 재현성
+
+- 모든 산출물·claim·결정에 `session_id`를 남기고 `run_id`·`worker_id`와 매핑한다.
+- 재실행 결과가 달라졌을 때 "어느 세션의 판단에서 갈라졌는지" 추적할 수 있어야 한다.
+- 세션 수와 세션당 작업 범위를 `IMPLEMENTATION_STATUS.md`에 기록해 Phase별 실제 소요를 남긴다.
+
+# 44. 실측 인벤토리 반영 계약
+
+## 44.0 사전 감사에서 확인된 자료 특성
+
+아래는 **사용자가 제공한 사전 감사 결과**이며 상태는 `external`이다. 단계 1에서 이 계약의 방식으로 재확인하기 전에는 `observed`로 승격하지 않는다. 재확인 결과가 다르면 아래 수치가 아니라 재확인 결과를 따른다.
+
+```text
+기간            2021-01-01 ~ 2026-05-18 (1,964일, 범위 내 결측 0일) → 2026은 YTD
+station-day     175,935
+파일            875,789 (station-day당 약 4.98 = obs 1 + nav 약 4)
+용량            454.3 GiB (station-day당 약 2.64 MiB)
+관측소          79국(2021) → 98국(2026)
+압축·형식       거의 전량 .Z (Unix compress), RINEX 2 계열 파일명
+형식 예외       10일에서 다른 확장자 혼입(.zip 포함)
+파생 규모       station-epoch 약 5.07억, 위성×epoch 약 10~18 G건
+```
+
+이 특성에서 곧바로 따라오는 계약이 44.1~44.10이다.
+
+## 44.1 관측 세션(일 경계) 계약
+
+파일 하나를 무조건 독립 세션으로 간주하지 않는다. 자정 경계에서 arc·모호도·수신기 clock이 재초기화되는 것은 **물리적 현상**이며 데이터 파이프라인 이상과 구분해 다룬다.
+
+- 같은 station에서 앞 파일의 마지막 유효 epoch와 다음 파일의 첫 유효 epoch 간격이 `max_stitch_gap_seconds` 이내이고 관측코드 구성·좌표·수신기 metadata가 연속이면 `logical_session_id`로 연결한다.
+- 수신기 reset, clock step, 좌표 불연속, 관측코드 변경, 시각 역행이 있으면 새 세션으로 분리하고 `session_break_reason`을 남긴다.
+- 연결·분리 근거를 `session_stitch_reason`, `session_stitch_confidence`로 저장한다.
+- **파일 단위 또는 세션 단위 중심화(offset 제거)를 금지한다.** 세션 전체에 걸친 장시간 이상이 정상 오프셋으로 흡수되어 사라진다. 기준선은 반드시 5절·19절의 regime 계층으로 만든다.
+- 자정 ±`midnight_window_seconds` 안에서 시작·종료한 사건의 비율을 별도로 보고한다. 이 비율이 비정상적으로 높으면 세션 효과를 먼저 의심한다.
+- 경계를 걸친 arc는 39.7절 halo로 계산하고, 경계에서 병합된 사건은 `boundary_merged=true`로 표시해 지속시간 분포를 별도 집계한다.
+
+## 44.2 canonical 파일 선택 규칙
+
+같은 station-day에 형식·압축이 다른 파일이 공존하는 사례가 실제로 존재한다(44.0의 형식 예외 10일).
+
+1. `content_equality_keys`로 내용 동등성을 먼저 판정한다. 동등하면 우선순위 목록으로 canonical을 고른다.
+2. 동등하지 않으면 **둘 다 격리**하고 `duplicate_group_id`로 묶은 뒤 수동 확인 대상으로 올린다. 임의로 하나를 고르지 않는다.
+3. 어떤 경우에도 대안 파일을 삭제·이동하지 않는다(원시자료 보호).
+4. 선택 결과와 근거를 `inventory/canonical_selection.csv`에 남기고, 후보 사건의 `source_refs`가 canonical 파일을 가리키게 한다.
+5. 우선순위로도 결정되지 않으면 42절 미규정 사례로 기록한다.
+
+## 44.3 항법자료 병합 계약
+
+station-day당 nav 파일이 여러 개 존재한다.
+
+- 위성 위치·고도각 계산의 소스 우선순위는 `navigation_merge.source_priority`를 따르고, 실제 사용한 소스를 epoch·위성 단위로 기록한다.
+- 여러 nav의 동일 ephemeris는 `dedupe_key`로 중복 제거한다. 서로 다른 값이 같은 key로 오면 병합하지 말고 둘 다 보존한 뒤 선택 근거를 남긴다.
+- health flag가 불량인 레코드는 제외하되 제외 사실을 기록한다. `max_ephemeris_age_hours`를 넘는 외삽은 사용하지 않고 해당 구간을 `geometry_unavailable`로 둔다.
+- 항법자료 문제로 고도각을 계산하지 못한 구간을 **정상으로 간주하지 않는다.** 고도각 의존 특징만 `not_computed`로 두고 나머지는 계속 산출한다.
+
+## 44.4 관측소 코호트 정책
+
+관측소 수가 79국에서 98국으로 증가했다. 연도 비교에서 이 변화를 통제하지 않으면 "사건이 늘었다"가 "관측소가 늘었다"와 구분되지 않는다.
+
+- **주 분석은 고정 코호트**(분석 전 기간에 존재한 관측소)로 수행한다.
+- **보조 분석은 전체 관측소 + 노출 정규화**(유효 station-day 분모)로 수행한다.
+- 두 결과를 모두 보고하고, 결론이 코호트 선택에 따라 달라지면 그 사실을 명시한다.
+- 코호트 정의는 평가 이전에 동결한다. 결과를 보고 코호트를 바꾸지 않는다.
+- 관측소 신설·폐지·이설(같은 코드, 다른 지점)은 regime 분할이 아니라 **station 분할**로 처리하고 좌표 점프로 감지한다.
+
+## 44.5 위성군 coverage regime
+
+- 한 관측소에서 새 위성군 관측이 시작·중단되면 그 시점을 regime 경계로 삼는다(`min_stable_days_to_close_regime` 이상 안정 후 확정).
+- '위성 수 급락' 계열 검출기의 기준선은 반드시 같은 coverage regime 안에서만 만든다. 2021년과 2025년의 위성 수 분포를 하나의 기준선으로 합치지 않는다.
+- 대역차분(4.5절) 특징은 인벤토리에서 확인된 관측코드가 존재하는 regime에서만 계산한다. L5/E5a가 없는 구간에서 값을 만들어내지 않는다.
+
+## 44.6 분석집합 동결과 신규 자료
+
+자료는 계속 쌓인다. 실행 중 입력 집합이 커지는 것은 정상 상황이다.
+
+- 분석집합은 `analysis_cutoff_utc`로 동결한다. 동결 이후 추가된 파일은 **현재 run에 포함하지 않는다.**
+- 새 자료로 분석하려면 새 `run_id`로 분리하고, 동결된 기준선·blind freeze를 연장하지 않는다.
+- 기준선 재학습이 필요하다고 판단되면 orchestrator 승인·범위 문서화·기존 claim supersede를 함께 수행한다.
+- 보고서에는 항상 분석집합의 cutoff와 그 시점의 파일 수·용량을 명시한다.
+
+## 44.7 위성×epoch 저장 전략
+
+위성×epoch 레코드는 10~18 G건 규모다. **전량 저장하지 않는다.**
+
+- 고도각·신호강도 기준선은 위성별 행을 저장하지 않고 **스트리밍 누산기**(group_key × constellation × exact code × elevation_bin의 count·합·제곱합·히스토그램 또는 39.8절 스케치)로 만든다.
+- epoch 수준 특징(위성 수, 공통 하락 비율, 분위수 등)은 ingest 중에 계산해 epoch 요약 테이블에만 남긴다.
+- 위성별 행은 `satellite_obs_retention.mode`에 따라 **사건창 전후 전량 + 정상 구간 층화표본**만 보존한다. detect 이후 사건창을 원문에서 재파싱하는 2-pass를 허용한다.
+- `full` 모드는 여유 디스크가 예상 산출량의 3배 이상일 때만, 근거를 기록하고 켠다.
+- 무엇이 전량이고 무엇이 표본인지 manifest와 보고서에 명시한다. **표본 통계를 전량 통계처럼 보고하지 않는다.**
+
+## 44.8 후보율 가드와 처리량 게이트
+
+- 유효 station-day당 후보 발생률이 `candidate_rate_guard`의 기대 범위를 벗어나면 **본실행을 진행하지 않는다.** 기준선 오류, 세션 중심화 실수, 품질 게이트 누락, 시간계 오류를 먼저 확인한다.
+- 이때 임계값을 조용히 올려 후보 수를 맞추는 것을 금지한다. 원인을 찾아 고치거나 42절로 기록한다.
+- R1·R2·R3에서 단위 처리량(station-day/h, GB/h)을 실측하고 전체 예상 소요를 산출한다. 예상 소요가 `runtime_guard.max_full_run_hours`를 넘으면 다음 규모로 진입하지 말고 병목(압축 해제 경로, 파서 핫루프, 저장 전략, dtype)을 먼저 개선한다.
+- 25.2절의 소요시간 산정은 이 실측값으로만 한다. 다른 프로젝트의 처리량을 가져오지 않는다.
+
+## 44.9 수동검토 표본 규칙
+
+- 후보가 `manual_review.full_review_max_candidates` 이하이면 전수 검토한다.
+- 초과하면 `stratify_by` 기준의 층화표본을 고정 seed로 뽑아 검토하고, **표본 비율과 층별 구성**을 보고한다.
+- 전수 검토하지 못한 후보는 `manual_review_status=not_reviewed`로 남기고 증거등급 상한을 낮춘다. 검토하지 않은 후보를 검토한 것처럼 집계하지 않는다.
+- 이중검토(39.8절) 비율은 이 표본 위에서 계산한다.
+
+## 44.10 캐시·로그 운영
+
+- 압축 해제본은 처리 후 즉시 삭제한다(`delete_on_task_success`). 전량 해제본을 보관하려 하지 마라. 이 자료는 해제 시 텍스트가 크게 팽창한다.
+- 캐시 용량이 상한에 닿으면 신규 task lease를 중단하고 정리 후 재개한다.
+- 파일 단위 성공 로그를 텍스트 로그에 남기지 않는다. 성공은 partition manifest에, 로그에는 경고 이상만 남긴다. 875,789개 파일 규모에서는 로그 자체가 자원 문제가 된다.
+- 로그 총량 상한을 두고, 초과 시 회전·압축하되 오류 로그는 보존한다.
+
 # 실행을 시작하라
 
 먼저 원시자료 폴더의 접근 가능 여부와 상위 수준의 디렉터리 구조를 읽기 전용으로 확인하고, 기존 지침파일과 기존 연구자산을 감사하라. 그 다음 전수 헤더 인벤토리와 소규모 파일럿을 완성하고 검증한 후, 자원 안전조건을 만족하면 전체 실제기간으로 확장하라. 계획만 제시하고 멈추지 말고 코드 작성, 테스트, 실제 실행, 결과 검증, 보고서 생성까지 계속하라.
 
 즉시 다음 순서로 수행한다.
 
-1. 원시자료와 결과경로의 존재·권한을 읽기 전용으로 확인한다.
-2. 적용 규칙, Git 상태, 기존 코드·보고서·후보·설정을 감사한다.
-3. 환경, 도구, CPU, RAM, disk, 원시자료 저장장치의 읽기 대역폭을 기록한다.
-4. 진행파일·`WORKER_STATUS.md`와 초기 manifest를 만든다.
-5. Phase 1 헤더 중심 전수 인벤토리를 수행한다.
-6. 실제 RINEX version·압축·관측코드를 근거로 R1 표본을 선택한다.
-7. **워커 1개(직렬)로** R1을 end-to-end로 구현·시험하고 모든 게이트를 기록한다. 이 결과가 이후 병렬 실행의 기준이다.
-8. R2까지 직렬로 통과한 뒤 R3에서 작업 큐·배리어·샤딩을 도입하고 41.2절 불변성 시험을 통과시킨다.
-9. gate와 불변성 시험이 통과할 때에만 워커 수를 늘리고 R4→R5로 확장한다. 처리량·병목을 실측해 기록한다.
-10. blind artifact를 freeze하기 전에 공식 사건정보를 탐지에 사용하지 않는다. `W_VAL`은 B3 이후 별도 프로세스로만 실행한다.
-11. 상위 후보에 모든 반증을 수행한 뒤 최종 보고한다.
+1. 이번 실행 세션의 `session_id`·역할·`blind_status`를 정하고, 43.2절 필수 문서를 먼저 읽는다(없으면 만든다). 이미 내려진 판단을 다시 논의하지 않는다.
+2. 원시자료와 결과경로의 존재·권한을 읽기 전용으로 확인한다.
+3. 적용 규칙, Git 상태, 기존 코드·보고서·후보·설정을 감사한다.
+4. 환경, 도구, CPU, RAM, disk, 원시자료 저장장치의 읽기 대역폭을 기록한다.
+5. 진행파일·`WORKER_STATUS.md`·`UNSPECIFIED_CASES.csv`·초기 manifest를 만든다.
+6. Phase 1 헤더 중심 전수 인벤토리를 수행하고, 44.0절의 사전 감사 수치를 재확인한다.
+7. 실제 RINEX version·압축·관측코드를 근거로 R1 표본을 선택한다. 형식 예외 파일을 반드시 포함한다.
+8. **워커 1개(직렬)로** R1을 end-to-end로 구현·시험하고 모든 게이트와 단위 처리량을 기록한다. 이 결과가 이후 병렬 실행의 기준이다.
+9. R2까지 직렬로 통과한 뒤 R3에서 작업 큐·배리어·샤딩을 도입하고 41.2절 불변성 시험과 44.8절 후보율·처리량 게이트를 통과시킨다.
+10. gate와 시험이 통과할 때에만 워커 수를 늘리고 R4→R5로 확장한다. 처리량·병목을 실측해 기록한다.
+11. blind artifact를 freeze하기 전에 공식 사건정보를 탐지에 사용하지 않는다. `W_VAL`은 B3 이후 별도 세션·별도 프로세스로만 실행한다.
+12. 상위 후보에 모든 반증을 수행한 뒤 최종 보고한다.
+13. 세션을 끝낼 때 43.5절 인계 기록과 미규정 사례를 남긴다. 다음 세션이 읽을 **정확히 하나의 다음 작업**을 적는다.
 
 광범위한 사전 질문만 던지고 멈추지 마라. 접근 가능한 파일을 먼저 감사하고 안전한 기본값으로 R1까지 진행한다. 실제로 막히는 권한, 경로, 저장공간, 암호화, 손상 문제만 정확한 증거와 필요한 조치와 함께 질문한다.
 

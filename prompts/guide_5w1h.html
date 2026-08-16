@@ -516,7 +516,7 @@
 
   <main>
     <header class="hero">
-      <div class="eyebrow">5W1H 안내서 · V7 실행 계약</div>
+      <div class="eyebrow">5W1H 안내서 · V7.1 실행 계약</div>
       <h1>CORS RINEX 30초<br>GNSS 전파교란 분석</h1>
       <p class="lede">
         전국 상시관측소에 쌓인 30초 간격 GNSS 관측파일을 전수 감사해서,
@@ -525,8 +525,8 @@
         재현 가능한 분석 시스템을 코딩 에이전트가 실제로 만들고 실행하게 하는 지시서다.
       </p>
       <dl class="meta">
-        <div><dt>대상 문서</dt><dd class="mono">…_V7_parallel.md</dd></div>
-        <div><dt>분량</dt><dd>3,224줄</dd></div>
+        <div><dt>대상 문서</dt><dd class="mono">…_V7_1.md</dd></div>
+        <div><dt>분량</dt><dd>3,595줄</dd></div>
         <div><dt>표본간격</dt><dd>30 s</dd></div>
         <div><dt>보고 언어</dt><dd>한국어 (UTC·KST 병기)</dd></div>
       </dl>
@@ -1186,6 +1186,9 @@ cli worker --role W_VAL --workers 1       <span style="color:var(--muted)"># 별
             <tr><td><strong>병렬 실행 설계</strong></td><td><strong>39절</strong></td></tr>
             <tr><td><strong>역할별 실행 런북</strong></td><td><strong>40절</strong></td></tr>
             <tr><td><strong>병렬 검증·성능</strong></td><td><strong>41절</strong></td></tr>
+            <tr><td><strong>규칙이 없는 상황을 만났을 때</strong></td><td><strong>42절 · 미규정 사례</strong></td></tr>
+            <tr><td><strong>실행 세션 규칙</strong></td><td><strong>43절</strong></td></tr>
+            <tr><td><strong>이 자료 특유의 처리 규칙</strong></td><td><strong>44절</strong></td></tr>
           </tbody>
         </table>
       </div>
@@ -1220,13 +1223,28 @@ cli worker --role W_VAL --workers 1       <span style="color:var(--muted)"># 별
         </div>
       </div>
 
+      <div class="cards" style="margin-top:28px">
+        <div class="card">
+          <span class="k">42절 · 미규정 사례</span>
+          <p>규칙이 없는 상황에서 멈추지도 임의로 정하지도 않는다. 기록하고 <strong>보수적 기본값</strong>(제외 대신 격리 / 추정 대신 <code>unassessable</code> / 병합 대신 분리 / 승격 대신 보류)을 적용한 뒤 계속한다.</p>
+        </div>
+        <div class="card">
+          <span class="k">43절 · 실행 세션</span>
+          <p>작업 컨텍스트가 끊기면 판단이 사라진다. 세션 시작 시 필수 문서 읽기, 종료 시 판단 기록, 불변 조항 상시 주입, <strong>한 세션 안에서 blind 상태를 바꾸지 않기</strong>.</p>
+        </div>
+        <div class="card">
+          <span class="k">44절 · 실측 반영</span>
+          <p>자정 세션 경계와 <strong>파일 단위 중심화 금지</strong>, canonical 파일 선택, nav 병합, 고정 코호트 비교, 위성×epoch 전량 저장 금지, 후보율·처리량 가드.</p>
+        </div>
+      </div>
+
       <div class="note" style="margin-top:28px">
         <span class="callout-k">문서 전체를 관통하는 원칙</span>
         <p>30초 CORS RINEX는 강력한 관측망 증거를 줄 수 있지만, RF 원인을 단독으로 확정하는 센서는 아니다.</p>
       </div>
 
       <div class="footer">
-        <p>이 안내서는 실행 계약 원문 <span class="mono">CORS_RINEX30S_GNSS_interference_V7_parallel.md</span>를 설명하기 위한 문서다.
+        <p>이 안내서는 실행 계약 원문 <span class="mono">CORS_RINEX30S_GNSS_interference_V7_1.md</span>를 설명하기 위한 문서다.
         수치·규칙의 최종 근거는 항상 원문이며, 충돌하면 원문을 따른다.</p>
       </div>
     </section>
